@@ -13,7 +13,7 @@ export default function CVEducationList({ education }: CVEducationListProps) {
   const deleteMutation = trpc.cv.deleteEducation.useMutation();
   const utils = trpc.useUtils();
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this education entry?")) {
       try {
         await deleteMutation.mutateAsync({ id });

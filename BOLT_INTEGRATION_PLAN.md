@@ -6,6 +6,319 @@
 **Current Tech Stack:** Full-stack application with MySQL/TiDB, Drizzle ORM, tRPC, React, Manus OAuth
 **Target Environment:** Bolt.New with Supabase PostgreSQL
 **Integration Date:** November 3, 2025
+**Last Updated:** November 3, 2025
+**Document Version:** 1.1
+**Status:** Phase 2 Complete - Database Schema Implemented
+
+---
+
+## Understanding the Bolt.New Environment
+
+### What is Bolt.New?
+
+Bolt.New is a browser-based development environment that enables rapid full-stack application development without local setup. It provides:
+- **Instant Development Server**: Runs Vite dev server automatically
+- **Integrated Supabase**: Pre-configured PostgreSQL database with authentication
+- **Browser-Based IDE**: Complete development environment in the browser
+- **Zero Configuration**: No local Node.js, npm, or database installation required
+- **Live Preview**: Real-time preview of changes
+- **Git Integration**: Built-in version control
+
+### Key Technical Constraints
+
+**Environment Variables:**
+- ALL client-side variables MUST use `VITE_` prefix
+- Supabase credentials are pre-configured in `.env`:
+  - `VITE_SUPABASE_URL` - Supabase project URL
+  - `VITE_SUPABASE_ANON_KEY` - Public anon key for client-side operations
+- Environment variables are automatically available via `import.meta.env`
+
+**Database Access:**
+- Supabase PostgreSQL is the ONLY supported database
+- Database operations via:
+  1. **Supabase Client** (`@supabase/supabase-js`) - For CRUD operations
+  2. **Supabase MCP Tools** - For migrations and SQL execution
+  3. **Direct SQL** - Via `mcp__supabase__execute_sql` tool
+- NO local database required
+- NO database connection strings needed (handled by Supabase client)
+
+**Authentication:**
+- Supabase Auth is pre-integrated via `auth.users` table
+- User authentication handled by Supabase SDK
+- NO custom authentication server needed
+- Session management automatic via Supabase client
+
+**Development Server:**
+- Vite dev server runs automatically on port 5173
+- NEVER manually start dev server (`npm run dev` not needed)
+- Hot module replacement (HMR) enabled by default
+- Build command: `npm run build` (runs `tsc && vite build`)
+
+**File System:**
+- All code in `/tmp/cc-agent/[session-id]/project/` directory
+- Changes persist during session
+- Standard npm project structure
+- Uses standard package.json for dependencies
+
+### Supabase MCP Tools Available
+
+The following tools are available for database operations:
+
+1. **`mcp__supabase__list_tables`** - List all database tables
+2. **`mcp__supabase__list_migrations`** - View applied migrations
+3. **`mcp__supabase__apply_migration`** - Execute SQL migration files
+4. **`mcp__supabase__execute_sql`** - Run direct SQL queries
+5. **`mcp__supabase__list_extensions`** - List PostgreSQL extensions
+6. **`mcp__supabase__list_edge_functions`** - List Supabase Edge Functions
+7. **`mcp__supabase__deploy_edge_function`** - Deploy serverless functions
+
+**Migration Best Practices:**
+- Use `apply_migration` with descriptive filename in snake_case
+- Include comprehensive migration comments explaining changes
+- Migrations are permanent - test before applying
+- All migrations tracked in `supabase/migrations/` directory
+
+### Technology Stack in Bolt.New
+
+**Frontend (Client-Side):**
+- React 18+ with TypeScript
+- Vite as build tool and dev server
+- Wouter for client-side routing
+- TailwindCSS for styling
+- shadcn/ui for UI components
+- @tanstack/react-query for data fetching/caching
+
+**Backend (Serverless):**
+- Supabase PostgreSQL for data persistence
+- Supabase Auth for authentication
+- Supabase Row Level Security (RLS) for authorization
+- Supabase Edge Functions for serverless compute (optional)
+- No traditional backend server required
+
+**Data Layer:**
+- Direct Supabase client calls from React components
+- React Query for caching and state management
+- No tRPC, no Express, no traditional API routes
+- All database access via Supabase client SDK
+
+### Database Schema Conventions
+
+**Naming Conventions:**
+- Tables: `snake_case` (e.g., `cv_profiles`, `blog_posts`)
+- Columns: `snake_case` (e.g., `user_id`, `created_at`)
+- Primary Keys: Always `id` column with UUID type
+- Foreign Keys: `{table}_id` format (e.g., `user_id`)
+- Timestamps: `created_at`, `updated_at` (timestamptz type)
+
+**Data Types:**
+- IDs: `uuid` with `DEFAULT gen_random_uuid()`
+- Booleans: `boolean` (NOT integers)
+- JSON: `jsonb` (NOT json or text)
+- Timestamps: `timestamptz` (timestamp with time zone)
+- Text: `text` (NOT varchar unless length constraint needed)
+
+**Required Features:**
+- Row Level Security (RLS) enabled on ALL tables
+- RLS policies for authenticated access: `auth.uid() = user_id`
+- Foreign key constraints to `auth.users(id)` with `ON DELETE CASCADE`
+- Indexes on foreign keys and frequently queried columns
+- Automatic `updated_at` triggers using `update_updated_at_column()` function
+
+### Working Outside Bolt.New
+
+If developing outside Bolt.New environment, you need:
+
+1. **Local Development Setup:**
+   ```bash
+   # Install Node.js 18+ and npm
+   npm install
+   npm run dev  # Start Vite dev server on localhost:5173
+   ```
+
+2. **Supabase Project:**
+   - Create account at https://supabase.com
+   - Create new project (free tier available)
+   - Get credentials from Project Settings → API
+   - Update `.env` with your credentials
+
+3. **Database Migrations:**
+   - Install Supabase CLI: `npm install -g supabase`
+   - Link project: `supabase link --project-ref YOUR_PROJECT_REF`
+   - Apply migrations: `supabase db push`
+   - Or use Supabase Dashboard SQL Editor
+
+4. **Environment Variables:**
+   ```bash
+   # .env file
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key-here
+   ```
+
+5. **TypeScript Types:**
+   ```bash
+   # Generate types from Supabase schema
+   npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/supabase.ts
+   ```
+
+### Common Patterns in Bolt.New
+
+**Data Fetching:**
+```typescript
+import { supabase } from '@/lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+
+function useProjects() {
+  return useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('portfolio_projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    }
+  });
+}
+```
+
+**Data Mutation:**
+```typescript
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+function useCreateProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (project) => {
+      const { data, error } = await supabase
+        .from('portfolio_projects')
+        .insert(project)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    }
+  });
+}
+```
+
+**Authentication:**
+```typescript
+import { supabase } from '@/lib/supabase';
+
+// Sign up
+const { data, error } = await supabase.auth.signUp({
+  email: 'user@example.com',
+  password: 'password123'
+});
+
+// Sign in
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password123'
+});
+
+// Get current user
+const { data: { user } } = await supabase.auth.getUser();
+
+// Sign out
+await supabase.auth.signOut();
+```
+
+---
+
+## Current Implementation Status
+
+### Completed Phases
+
+#### Phase 1: Project Foundation & Setup ✅ COMPLETE
+- Project structure established with proper directory organization
+- All dependencies installed and configured in `package.json`
+- Vite development environment configured
+- TypeScript configuration set up with strict mode
+- TailwindCSS styling framework integrated
+- Supabase client initialized in `src/lib/supabase.ts`
+- Environment variables properly configured with `VITE_` prefix
+
+#### Phase 2: Database Schema & Supabase Setup ✅ COMPLETE
+**Migrations Applied:**
+1. `create_cv_tables.sql` - Created 5 CV management tables
+   - cv_profiles (with JSONB for core_strengths and languages)
+   - cv_experiences (with JSONB for role_categories)
+   - cv_education (with JSONB for education_sections)
+   - cv_skills (with category grouping)
+   - cv_templates (with JSONB arrays for selected IDs)
+
+2. `create_portfolio_blog_tables.sql` - Created 3 portfolio/blog tables
+   - portfolio_projects (with publish status and JSONB tags)
+   - blog_posts (with unique slug constraint and JSONB tags)
+   - portfolio_settings (with JSONB social_links)
+
+3. `create_triggers_and_functions.sql` - Database automation
+   - `update_updated_at_column()` function for timestamp management
+   - `is_admin()` function for role checking
+   - Triggers on all tables for automatic updated_at
+
+**Security Implementation:**
+- Row Level Security (RLS) enabled on all 8 tables
+- 37 security policies created across all tables
+- Users can only access their own data (authenticated)
+- Published content is publicly readable (anon users)
+- Admin role checking infrastructure in place
+
+**Type System:**
+- TypeScript types updated in `src/types/cv.ts`
+- Changed from integer IDs to UUID strings
+- Converted integer booleans to proper boolean types
+- Added snake_case database column names with camelCase aliases
+- Proper JSONB type definitions for arrays and objects
+
+### Pending Phases
+
+#### Phase 3: Authentication Implementation 🔄 NEXT
+- Replace mock auth with Supabase Auth
+- Implement email/password authentication
+- Create auth context and hooks
+- Build login/signup components
+- Implement protected routes
+- Add role-based access control
+
+#### Phase 4: Data Layer Migration (CV Management) ⏳ PENDING
+- Replace tRPC with Supabase client queries
+- Create React Query hooks for CV data
+- Update components to use new data layer
+- Implement optimistic updates
+
+#### Phase 5: Data Layer Migration (Portfolio Management) ⏳ PENDING
+- Create hooks for portfolio and blog data
+- Update admin panel components
+- Implement public/private content views
+
+#### Phase 6-9: Polish & Testing ⏳ PENDING
+- Import/export functionality
+- UI/UX improvements
+- Comprehensive testing
+- Documentation updates
+
+### Known Issues
+
+**TypeScript Compilation Errors:**
+- Components still reference old integer ID types (will be fixed in Phase 4)
+- Mock tRPC interface expects number IDs instead of string UUIDs
+- Template JSONB array parsing needs updates
+- These errors are expected at this stage and will be resolved when implementing Phase 4
+
+**Database Schema:**
+- All migrations successfully applied ✅
+- All RLS policies active and enforced ✅
+- All foreign key relationships established ✅
+- All indexes created for performance ✅
 
 ---
 
@@ -905,6 +1218,7 @@ The plan prioritizes data safety, user security, and feature completeness while 
 
 ---
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Last Updated:** November 3, 2025
-**Status:** Ready for Implementation
+**Status:** Phase 2 Complete - Database Schema Implemented
+**Next Phase:** Phase 3 - Authentication Implementation

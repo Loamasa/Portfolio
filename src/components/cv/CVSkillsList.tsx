@@ -14,7 +14,7 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
   const deleteMutation = trpc.cv.deleteSkill.useMutation();
   const utils = trpc.useUtils();
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this skill?")) {
       try {
         await deleteMutation.mutateAsync({ id });

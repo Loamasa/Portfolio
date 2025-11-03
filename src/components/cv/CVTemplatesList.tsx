@@ -14,7 +14,7 @@ export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
   const deleteMutation = trpc.cv.deleteTemplate.useMutation();
   const utils = trpc.useUtils();
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this template?")) {
       try {
         await deleteMutation.mutateAsync({ id });
@@ -26,7 +26,7 @@ export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
     }
   };
 
-  const handleExportTemplate = async (templateId: number) => {
+  const handleExportTemplate = async (templateId: string) => {
     try {
       const data = await utils.cv.exportJson.fetch({ templateId });
       const jsonString = JSON.stringify(data, null, 2);
@@ -61,7 +61,7 @@ export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle>{template.name}</CardTitle>
-                {template.isDefault === 1 && (
+                {template.isDefault && (
                   <Badge className="mt-2">Default</Badge>
                 )}
               </div>
@@ -93,13 +93,13 @@ export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
             )}
             <div className="space-y-2 text-sm text-slate-600">
               <div>
-                Experiences: {JSON.parse(template.selectedExperienceIds as string || '[]').length}
+                Experiences: {(template.selectedExperienceIds as string[] || []).length}
               </div>
               <div>
-                Education: {JSON.parse(template.selectedEducationIds as string || '[]').length}
+                Education: {(template.selectedEducationIds as string[] || []).length}
               </div>
               <div>
-                Skills: {JSON.parse(template.selectedSkillIds as string || '[]').length}
+                Skills: {(template.selectedSkillIds as string[] || []).length}
               </div>
             </div>
           </CardContent>
