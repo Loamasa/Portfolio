@@ -125,6 +125,50 @@ export function useCreateCvEducation() {
   });
 }
 
+export function useUpdateCvEducation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: CvEducationInput }) => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!user) {
+        throw new Error("You must be logged in to update education.");
+      }
+
+      const payload = mapEducationToDb({ ...input, userId: user.id });
+
+      const { data, error } = await supabase
+        .from("cv_education")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return mapEducationFromDb(data as DbCvEducation);
+    },
+    onSuccess: (education) => {
+      queryClient.setQueryData<CvEducation[]>(EDUCATION_QUERY_KEY, (prev) =>
+        prev ? prev.map((edu) => (edu.id === education.id ? education : edu)) : [education]
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: EDUCATION_QUERY_KEY });
+    },
+  });
+}
+
 export function useDeleteCvEducation() {
   const queryClient = useQueryClient();
 

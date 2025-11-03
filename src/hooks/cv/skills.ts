@@ -98,6 +98,50 @@ export function useCreateCvSkill() {
   });
 }
 
+export function useUpdateCvSkill() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: CvSkillInput }) => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!user) {
+        throw new Error("You must be logged in to update skills.");
+      }
+
+      const payload = mapSkillToDb({ ...input, userId: user.id });
+
+      const { data, error } = await supabase
+        .from("cv_skills")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return mapSkillFromDb(data as DbCvSkill);
+    },
+    onSuccess: (skill) => {
+      queryClient.setQueryData<CvSkill[]>(SKILLS_QUERY_KEY, (prev) =>
+        prev ? prev.map((s) => (s.id === skill.id ? skill : s)) : [skill]
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: SKILLS_QUERY_KEY });
+    },
+  });
+}
+
 export function useDeleteCvSkill() {
   const queryClient = useQueryClient();
 

@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { CvEducation } from "@/types/cv";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
 import { useDeleteCvEducation } from "@/hooks/cv";
 import { toast } from "sonner";
+import CVEducationForm from "./CVEducationForm";
 
 interface CVEducationListProps {
   education: CvEducation[];
@@ -11,6 +13,7 @@ interface CVEducationListProps {
 
 export default function CVEducationList({ education }: CVEducationListProps) {
   const deleteMutation = useDeleteCvEducation();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this education entry?")) {
@@ -21,6 +24,14 @@ export default function CVEducationList({ education }: CVEducationListProps) {
         toast.error("Failed to delete education entry");
       }
     }
+  };
+
+  const handleEdit = (id: string) => {
+    setEditingId(id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
   };
 
   if (!education || education.length === 0) {
@@ -35,44 +46,60 @@ export default function CVEducationList({ education }: CVEducationListProps) {
 
   return (
     <div className="space-y-4">
-      {education.map((edu) => (
-        <Card key={edu.id}>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>{edu.school}</CardTitle>
-                <CardDescription className="font-semibold">
-                  {edu.degree} {edu.field && `in ${edu.field}`}
-                </CardDescription>
+      {education.map((edu) => {
+        if (editingId === edu.id) {
+          return (
+            <Card key={edu.id}>
+              <CardContent className="pt-6">
+                <CVEducationForm
+                  initialData={edu}
+                  onSuccess={handleCancelEdit}
+                  onCancel={handleCancelEdit}
+                />
+              </CardContent>
+            </Card>
+          );
+        }
+
+        return (
+          <Card key={edu.id}>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle>{edu.school}</CardTitle>
+                  <CardDescription className="font-semibold">
+                    {edu.degree} {edu.field && `in ${edu.field}`}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(edu.id)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(edu.id)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm">
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(edu.id)}
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>{edu.location}</span>
+                <span>
+                  {edu.startDate} - {edu.isOngoing ? "Ongoing" : edu.endDate}
+                </span>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>{edu.location}</span>
-              <span>
-                {edu.startDate} - {edu.isOngoing ? "Ongoing" : edu.endDate}
-              </span>
-            </div>
-            {edu.description && (
-              <p className="text-slate-700 whitespace-pre-wrap">{edu.description}</p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              {edu.description && (
+                <p className="text-slate-700 whitespace-pre-wrap">{edu.description}</p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

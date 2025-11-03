@@ -1,23 +1,27 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useCreateCvSkill } from "@/hooks/cv";
+import { useCreateCvSkill, useUpdateCvSkill } from "@/hooks/cv";
+import { CvSkill } from "@/types/cv";
 import { toast } from "sonner";
 
 interface CVSkillFormProps {
+  initialData?: CvSkill;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-const createInitialState = () => ({
-  skillName: "",
-  category: "",
-  proficiency: "",
+const createInitialState = (data?: CvSkill) => ({
+  skillName: data?.skillName ?? "",
+  category: data?.category ?? "",
+  proficiency: data?.proficiency ?? "",
 });
 
-export default function CVSkillForm({ onSuccess, onCancel }: CVSkillFormProps) {
-  const [formData, setFormData] = useState(createInitialState());
+export default function CVSkillForm({ initialData, onSuccess, onCancel }: CVSkillFormProps) {
+  const [formData, setFormData] = useState(createInitialState(initialData));
   const createSkill = useCreateCvSkill();
+  const updateSkill = useUpdateCvSkill();
+  const isEditing = !!initialData;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,18 +32,25 @@ export default function CVSkillForm({ onSuccess, onCancel }: CVSkillFormProps) {
     }
 
     try {
-      await createSkill.mutateAsync({
+      const payload = {
         skillName: formData.skillName,
         category: formData.category || null,
         proficiency: formData.proficiency || null,
-      });
+      };
 
-      toast.success("Skill added successfully");
-      setFormData(createInitialState());
+      if (isEditing) {
+        await updateSkill.mutateAsync({ id: initialData.id, input: payload });
+        toast.success("Skill updated successfully");
+      } else {
+        await createSkill.mutateAsync(payload);
+        toast.success("Skill added successfully");
+        setFormData(createInitialState());
+      }
+
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to add skill");
+      toast.error(isEditing ? "Failed to update skill" : "Failed to add skill");
     }
   };
 
@@ -85,8 +96,8 @@ export default function CVSkillForm({ onSuccess, onCancel }: CVSkillFormProps) {
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={createSkill.isPending}>
-          {createSkill.isPending ? "Saving..." : "Add Skill"}
+        <Button type="submit" disabled={createSkill.isPending || updateSkill.isPending}>
+          {createSkill.isPending || updateSkill.isPending ? "Saving..." : isEditing ? "Update Skill" : "Add Skill"}
         </Button>
       </div>
     </form>

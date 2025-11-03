@@ -2,29 +2,33 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateCvEducation } from "@/hooks/cv";
+import { useCreateCvEducation, useUpdateCvEducation } from "@/hooks/cv";
+import { CvEducation } from "@/types/cv";
 import { toast } from "sonner";
 
 interface CVEducationFormProps {
+  initialData?: CvEducation;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-const createInitialState = () => ({
-  school: "",
-  degree: "",
-  field: "",
-  location: "",
-  startDate: "",
-  endDate: "",
-  isOngoing: false,
-  description: "",
-  website: "",
+const createInitialState = (data?: CvEducation) => ({
+  school: data?.school ?? "",
+  degree: data?.degree ?? "",
+  field: data?.field ?? "",
+  location: data?.location ?? "",
+  startDate: data?.startDate ?? "",
+  endDate: data?.endDate ?? "",
+  isOngoing: data?.isOngoing ?? false,
+  description: data?.description ?? "",
+  website: data?.website ?? "",
 });
 
-export default function CVEducationForm({ onSuccess, onCancel }: CVEducationFormProps) {
-  const [formData, setFormData] = useState(createInitialState());
+export default function CVEducationForm({ initialData, onSuccess, onCancel }: CVEducationFormProps) {
+  const [formData, setFormData] = useState(createInitialState(initialData));
   const createEducation = useCreateCvEducation();
+  const updateEducation = useUpdateCvEducation();
+  const isEditing = !!initialData;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -35,7 +39,7 @@ export default function CVEducationForm({ onSuccess, onCancel }: CVEducationForm
     }
 
     try {
-      await createEducation.mutateAsync({
+      const payload = {
         school: formData.school,
         degree: formData.degree || null,
         field: formData.field || null,
@@ -45,14 +49,21 @@ export default function CVEducationForm({ onSuccess, onCancel }: CVEducationForm
         isOngoing: formData.isOngoing,
         description: formData.description || null,
         website: formData.website || null,
-      });
+      };
 
-      toast.success("Education added successfully");
-      setFormData(createInitialState());
+      if (isEditing) {
+        await updateEducation.mutateAsync({ id: initialData.id, input: payload });
+        toast.success("Education updated successfully");
+      } else {
+        await createEducation.mutateAsync(payload);
+        toast.success("Education added successfully");
+        setFormData(createInitialState());
+      }
+
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to add education");
+      toast.error(isEditing ? "Failed to update education" : "Failed to add education");
     }
   };
 
@@ -173,8 +184,8 @@ export default function CVEducationForm({ onSuccess, onCancel }: CVEducationForm
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={createEducation.isPending}>
-          {createEducation.isPending ? "Saving..." : "Add Education"}
+        <Button type="submit" disabled={createEducation.isPending || updateEducation.isPending}>
+          {createEducation.isPending || updateEducation.isPending ? "Saving..." : isEditing ? "Update Education" : "Add Education"}
         </Button>
       </div>
     </form>

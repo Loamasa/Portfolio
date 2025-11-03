@@ -158,7 +158,7 @@ function createCVHTML(cvData: CVData): string {
             Experience
           </h2>
           ${cvData.experiences.map(exp => `
-            <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                 <span style="font-weight: bold; font-size: 12px; color: #2c3e50;">${exp.jobTitle}</span>
                 <span style="font-size: 11px; color: #666;">${formatDate(exp.startDate, exp.isCurrent)} ${exp.endDate ? `- ${exp.endDate}` : ''}</span>
@@ -183,7 +183,7 @@ function createCVHTML(cvData: CVData): string {
             Education
           </h2>
           ${cvData.education.map(edu => `
-            <div style="margin-bottom: 12px;">
+            <div style="margin-bottom: 12px; page-break-inside: avoid; break-inside: avoid;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                 <span style="font-weight: bold; font-size: 12px; color: #2c3e50;">${edu.school}</span>
                 <span style="font-size: 11px; color: #666;">${formatDate(edu.startDate, edu.isOngoing)} ${edu.endDate ? `- ${edu.endDate}` : ''}</span>

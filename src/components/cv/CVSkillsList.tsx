@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CvSkill } from "@/types/cv";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2 } from "lucide-react";
 import { useDeleteCvSkill } from "@/hooks/cv";
 import { toast } from "sonner";
+import CVSkillForm from "./CVSkillForm";
 
 interface CVSkillsListProps {
   skills: CvSkill[];
@@ -12,6 +14,7 @@ interface CVSkillsListProps {
 
 export default function CVSkillsList({ skills }: CVSkillsListProps) {
   const deleteMutation = useDeleteCvSkill();
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this skill?")) {
@@ -22,6 +25,14 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
         toast.error("Failed to delete skill");
       }
     }
+  };
+
+  const handleEdit = (id: string) => {
+    setEditingId(id);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
   };
 
   if (!skills || skills.length === 0) {
@@ -43,6 +54,18 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
 
   return (
     <div className="space-y-6">
+      {editingId && (
+        <Card>
+          <CardContent className="pt-6">
+            <CVSkillForm
+              initialData={skills.find((s) => s.id === editingId)}
+              onSuccess={handleCancelEdit}
+              onCancel={handleCancelEdit}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {Object.entries(groupedSkills).map(([category, categorySkills]) => (
         <div key={category}>
           <h3 className="text-lg font-semibold text-slate-900 mb-3">{category}</h3>
@@ -54,7 +77,7 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
                   {skill.proficiency && ` (${skill.proficiency})`}
                 </Badge>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleEdit(skill.id)}>
                     <Edit2 className="w-3 h-3" />
                   </Button>
                   <Button

@@ -116,6 +116,50 @@ export function useCreateCvExperience() {
   });
 }
 
+export function useUpdateCvExperience() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: CvExperienceInput }) => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw authError;
+      }
+
+      if (!user) {
+        throw new Error("You must be logged in to update an experience.");
+      }
+
+      const payload = mapExperienceToDb({ ...input, userId: user.id });
+
+      const { data, error } = await supabase
+        .from("cv_experiences")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return mapExperienceFromDb(data as DbCvExperience);
+    },
+    onSuccess: (experience) => {
+      queryClient.setQueryData<CvExperience[]>(EXPERIENCES_QUERY_KEY, (prev) =>
+        prev ? prev.map((exp) => (exp.id === experience.id ? experience : exp)) : [experience]
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: EXPERIENCES_QUERY_KEY });
+    },
+  });
+}
+
 export function useDeleteCvExperience() {
   const queryClient = useQueryClient();
 

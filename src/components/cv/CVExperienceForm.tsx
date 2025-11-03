@@ -2,28 +2,32 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateCvExperience } from "@/hooks/cv";
+import { useCreateCvExperience, useUpdateCvExperience } from "@/hooks/cv";
+import { CvExperience } from "@/types/cv";
 import { toast } from "sonner";
 
 interface CVExperienceFormProps {
+  initialData?: CvExperience;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-const createInitialState = () => ({
-  jobTitle: "",
-  company: "",
-  location: "",
-  startDate: "",
-  endDate: "",
-  isCurrent: false,
-  overview: "",
-  description: "",
+const createInitialState = (data?: CvExperience) => ({
+  jobTitle: data?.jobTitle ?? "",
+  company: data?.company ?? "",
+  location: data?.location ?? "",
+  startDate: data?.startDate ?? "",
+  endDate: data?.endDate ?? "",
+  isCurrent: data?.isCurrent ?? false,
+  overview: data?.overview ?? "",
+  description: data?.description ?? "",
 });
 
-export default function CVExperienceForm({ onSuccess, onCancel }: CVExperienceFormProps) {
-  const [formData, setFormData] = useState(createInitialState());
+export default function CVExperienceForm({ initialData, onSuccess, onCancel }: CVExperienceFormProps) {
+  const [formData, setFormData] = useState(createInitialState(initialData));
   const createExperience = useCreateCvExperience();
+  const updateExperience = useUpdateCvExperience();
+  const isEditing = !!initialData;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -34,7 +38,7 @@ export default function CVExperienceForm({ onSuccess, onCancel }: CVExperienceFo
     }
 
     try {
-      await createExperience.mutateAsync({
+      const payload = {
         jobTitle: formData.jobTitle,
         company: formData.company,
         location: formData.location || null,
@@ -43,14 +47,21 @@ export default function CVExperienceForm({ onSuccess, onCancel }: CVExperienceFo
         isCurrent: formData.isCurrent,
         overview: formData.overview || null,
         description: formData.description || null,
-      });
+      };
 
-      toast.success("Experience added successfully");
-      setFormData(createInitialState());
+      if (isEditing) {
+        await updateExperience.mutateAsync({ id: initialData.id, input: payload });
+        toast.success("Experience updated successfully");
+      } else {
+        await createExperience.mutateAsync(payload);
+        toast.success("Experience added successfully");
+        setFormData(createInitialState());
+      }
+
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to add experience");
+      toast.error(isEditing ? "Failed to update experience" : "Failed to add experience");
     }
   };
 
@@ -159,8 +170,8 @@ export default function CVExperienceForm({ onSuccess, onCancel }: CVExperienceFo
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={createExperience.isPending}>
-          {createExperience.isPending ? "Saving..." : "Add Experience"}
+        <Button type="submit" disabled={createExperience.isPending || updateExperience.isPending}>
+          {createExperience.isPending || updateExperience.isPending ? "Saving..." : isEditing ? "Update Experience" : "Add Experience"}
         </Button>
       </div>
     </form>
