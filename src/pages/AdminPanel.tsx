@@ -58,9 +58,13 @@ export default function AdminPanel() {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => {
-                  logout();
-                  setLocation('/');
+                onClick={async () => {
+                  try {
+                    await logout();
+                    setLocation('/');
+                  } catch (error) {
+                    console.error(error);
+                  }
                 }}
               >
                 <LogOut className="w-4 h-4 mr-2" />
