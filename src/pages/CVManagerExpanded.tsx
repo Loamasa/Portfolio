@@ -31,7 +31,6 @@ export default function CVManagerExpanded() {
   const [showAddSkill, setShowAddSkill] = useState(false);
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [isExportingJson, setIsExportingJson] = useState(false);
-  const [isExportingAiJson, setIsExportingAiJson] = useState(false);
   const templateImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const profileQuery = useCvProfile();
@@ -68,6 +67,8 @@ export default function CVManagerExpanded() {
     try {
       setIsExportingJson(true);
       const payload = {
+        _comment: "This JSON export contains your complete CV data. You can use this file to: (1) Backup your CV data, (2) Import into CV templates (Go to Templates tab > Import Template), (3) Share with AI assistants for CV optimization, (4) Transfer data between accounts. The 'profile' section contains personal information, 'experiences' contains work history, 'education' contains academic background, and 'skills' contains your skill set.",
+        exportDate: new Date().toISOString(),
         profile,
         experiences,
         education,
@@ -90,57 +91,6 @@ export default function CVManagerExpanded() {
     }
   };
 
-  const handleExportJsonForAi = async () => {
-    if (isLoading) {
-      toast.error("Data is still loading. Please try again in a moment.");
-      return;
-    }
-
-    try {
-      setIsExportingAiJson(true);
-      const payload = {
-        summary: profile?.profileSummary ?? "",
-        coreStrengths: profile?.coreStrengths ?? [],
-        languages: profile?.languages ?? [],
-        experiences: experiences.map((exp) => ({
-          jobTitle: exp.jobTitle,
-          company: exp.company,
-          startDate: exp.startDate,
-          endDate: exp.isCurrent ? "Present" : exp.endDate,
-          description: exp.description,
-          overview: exp.overview,
-        })),
-        education: education.map((edu) => ({
-          school: edu.school,
-          degree: edu.degree,
-          field: edu.field,
-          startDate: edu.startDate,
-          endDate: edu.isOngoing ? "Ongoing" : edu.endDate,
-          description: edu.description,
-        })),
-        skills: skills.map((skill) => ({
-          name: skill.skillName,
-          category: skill.category,
-          proficiency: skill.proficiency,
-        })),
-      };
-
-      const jsonString = JSON.stringify(payload, null, 2);
-      const blob = new Blob([jsonString], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `cv-ai-export-${new Date().toISOString().split("T")[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("AI-friendly export generated");
-    } catch (error) {
-      console.error("Failed to export CV for AI:", error);
-      toast.error("Failed to export AI JSON");
-    } finally {
-      setIsExportingAiJson(false);
-    }
-  };
 
   const handleImportJson = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -274,15 +224,7 @@ export default function CVManagerExpanded() {
               disabled={isExportingJson || isLoading}
             >
               <Download className="w-4 h-4 mr-2" />
-              {isExportingJson ? "Exporting..." : "Export CV as JSON"}
-            </Button>
-            <Button
-              onClick={handleExportJsonForAi}
-              variant="outline"
-              disabled={isExportingAiJson || isLoading}
-            >
-              <FileJson className="w-4 h-4 mr-2" />
-              {isExportingAiJson ? "Preparing..." : "Export for AI"}
+              {isExportingJson ? "Exporting..." : "Export JSON"}
             </Button>
             <label>
               <Button variant="outline" asChild disabled={isLoading}>
