@@ -66,8 +66,90 @@ export default function CVManagerExpanded() {
 
     try {
       setIsExportingJson(true);
+
+      const technicalGuide = `
+CV DATA EXPORT - Technical Guide
+=================================
+
+This JSON file contains your complete CV data and can be used to:
+- Backup your CV information
+- Import into CV templates
+- Share with AI assistants for optimization
+- Transfer data between accounts
+- Programmatically create or update CV entries via Supabase
+
+STRUCTURE:
+----------
+- profile: Personal information (single object, can be null)
+- experiences: Work history (array of experience objects)
+- education: Academic background (array of education objects)
+- skills: Skill set (array of skill objects)
+
+USAGE WITH SUPABASE:
+--------------------
+
+1. CREATE NEW PROFILE (if profile is null in your account):
+   - Use profile object fields to insert into 'cv_profiles' table
+   - Required fields: fullName
+   - Optional fields: title, email, phone, location, dateOfBirth, nationality, profilePhoto, profileSummary, coreStrengths (array), languages (array of {language, proficiency})
+   - Example: await supabase.from('cv_profiles').insert({ fullName: profile.fullName, title: profile.title, ... })
+
+2. UPDATE EXISTING PROFILE:
+   - Use profile object fields to update 'cv_profiles' table
+   - Example: await supabase.from('cv_profiles').update({ fullName: profile.fullName, ... }).eq('user_id', userId)
+
+3. CREATE NEW EXPERIENCES:
+   - Iterate through experiences array and insert into 'cv_experiences' table
+   - Required fields: jobTitle, company, startDate
+   - Optional fields: location, endDate, isCurrent (boolean), overview, roleCategories (array of {category, items[]}), description, order
+   - Example: for (const exp of experiences) { await supabase.from('cv_experiences').insert({ job_title: exp.jobTitle, company: exp.company, ... }) }
+
+4. UPDATE EXISTING EXPERIENCES:
+   - Match experiences by jobTitle + company + startDate to find existing records
+   - Example: await supabase.from('cv_experiences').update({ job_title: exp.jobTitle, ... }).eq('id', existingId)
+
+5. CREATE NEW EDUCATION:
+   - Iterate through education array and insert into 'cv_education' table
+   - Required fields: school, startDate
+   - Optional fields: degree, field, location, endDate, isOngoing (boolean), overview, educationSections (array of {title, items[]}), website, eqfLevel, description, order
+   - Example: for (const edu of education) { await supabase.from('cv_education').insert({ school: edu.school, degree: edu.degree, ... }) }
+
+6. UPDATE EXISTING EDUCATION:
+   - Match education by school + degree + startDate to find existing records
+   - Example: await supabase.from('cv_education').update({ school: edu.school, ... }).eq('id', existingId)
+
+7. CREATE NEW SKILLS:
+   - Iterate through skills array and insert into 'cv_skills' table
+   - Required fields: skillName
+   - Optional fields: category, proficiency, order
+   - Example: for (const skill of skills) { await supabase.from('cv_skills').insert({ skill_name: skill.skillName, category: skill.category, ... }) }
+
+8. UPDATE EXISTING SKILLS:
+   - Match skills by skillName to find existing records
+   - Example: await supabase.from('cv_skills').update({ skill_name: skill.skillName, ... }).eq('id', existingId)
+
+IMPORTANT NOTES:
+----------------
+- All IDs in this export are UUIDs from your Supabase database
+- When creating new entries, do NOT include the 'id', 'userId', 'createdAt', or 'updatedAt' fields (Supabase auto-generates these)
+- Field names use camelCase in JSON but snake_case in Supabase (e.g., jobTitle → job_title, skillName → skill_name)
+- Boolean fields: isCurrent, isOngoing (use true/false in Supabase)
+- Array fields (roleCategories, educationSections, coreStrengths, languages) are stored as JSONB in Supabase
+- For template imports, use the built-in "Import Template" feature in the Templates tab for automatic matching
+
+SUPABASE TABLE NAMES:
+----------------------
+- cv_profiles
+- cv_experiences
+- cv_education
+- cv_skills
+- cv_templates
+
+For more details, see the database schema in supabase/migrations/
+`;
+
       const payload = {
-        _comment: "This JSON export contains your complete CV data. You can use this file to: (1) Backup your CV data, (2) Import into CV templates (Go to Templates tab > Import Template), (3) Share with AI assistants for CV optimization, (4) Transfer data between accounts. The 'profile' section contains personal information, 'experiences' contains work history, 'education' contains academic background, and 'skills' contains your skill set.",
+        _technicalGuide: technicalGuide,
         exportDate: new Date().toISOString(),
         profile,
         experiences,
