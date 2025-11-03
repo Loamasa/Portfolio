@@ -28,9 +28,9 @@
 - **Hidden Access**: Admin panel is accessible via secret key combination (A-D-M-I-N) on homepage
 
 ### 4. Authentication & Security
-- **OAuth Integration**: Secure login via Manus OAuth
-- **Role-Based Access Control**: Admin and user roles with protected procedures
-- **Session Management**: Secure session handling with JWT tokens
+- **Supabase Auth**: Email/password authentication powered by Supabase with optional OAuth providers
+- **Role-Based Access Control**: Admin and user roles with protected procedures enforced via Supabase Row Level Security (RLS)
+- **Session Management**: Supabase client automatically keeps sessions in sync with the browser and refreshes tokens when needed
 
 ## Getting Started
 

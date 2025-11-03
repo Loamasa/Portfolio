@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Briefcase, BookOpen, Settings, LogOut } from "lucide-react";
+import { FileText, Briefcase, BookOpen, Settings, LogOut, User } from "lucide-react";
 import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/lib/const";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
@@ -41,7 +41,7 @@ export default function Home() {
     if (isAuthenticated) {
       setLocation('/admin');
     } else {
-      window.location.href = getLoginUrl();
+      setLocation(getLoginUrl());
     }
   };
 
@@ -73,7 +73,11 @@ export default function Home() {
               Blog
             </a>
             {isAuthenticated ? (
-              <>
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:flex items-center text-sm text-slate-600 bg-slate-100 rounded-full px-3 py-1">
+                  <User className="w-4 h-4 mr-2 text-primary" />
+                  {user?.email}
+                </span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -85,19 +89,23 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    logout();
-                    setLocation('/');
+                  onClick={async () => {
+                    try {
+                      await logout();
+                      setLocation('/');
+                    } catch (error) {
+                      console.error(error);
+                    }
                   }}
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
                 </Button>
-              </>
+              </div>
             ) : (
               <Button
                 size="sm"
-                onClick={() => (window.location.href = getLoginUrl())}
+                onClick={() => setLocation(getLoginUrl())}
               >
                 Login
               </Button>
