@@ -15,6 +15,7 @@ import {
   useDeleteCvTemplate,
   useUpdateCvTemplate,
 } from "@/hooks/cv";
+import { buildTemplateImportResult } from "@/lib/cv-template-import";
 import {
   CvEducation,
   CvExperience,
@@ -55,18 +56,21 @@ export default function CVTemplatesList({
     }
   };
 
-  const resolveSelectedIds = (ids: string[] | null | undefined) =>
-    Array.isArray(ids) ? ids : [];
-
   const handleExportTemplate = (template: CvTemplate) => {
     try {
-      const selectedExperienceIds = resolveSelectedIds(
+      const selectedExperienceIds = Array.isArray(
         template.selectedExperienceIds
-      );
-      const selectedEducationIds = resolveSelectedIds(
+      )
+        ? template.selectedExperienceIds
+        : [];
+      const selectedEducationIds = Array.isArray(
         template.selectedEducationIds
-      );
-      const selectedSkillIds = resolveSelectedIds(template.selectedSkillIds);
+      )
+        ? template.selectedEducationIds
+        : [];
+      const selectedSkillIds = Array.isArray(template.selectedSkillIds)
+        ? template.selectedSkillIds
+        : [];
 
       const payload = {
         template: {
@@ -111,38 +115,59 @@ export default function CVTemplatesList({
     try {
       const text = await file.text();
       const data = JSON.parse(text);
+      const { input, warnings, debug, meta } = buildTemplateImportResult(
+        data,
+        { experiences, education, skills },
+        {
+          fallbackName: template.name,
+          fallbackDescription: template.description ?? null,
+        }
+      );
 
-      const importedTemplate = data?.template ?? data;
-      if (!importedTemplate || typeof importedTemplate !== "object") {
-        throw new Error("Invalid template format");
-      }
+      const nextExperienceIds =
+        meta.hadExperienceSelection || meta.matchedExperienceCount > 0
+          ? input.selectedExperienceIds ?? []
+          : Array.isArray(template.selectedExperienceIds)
+          ? template.selectedExperienceIds
+          : [];
+
+      const nextEducationIds =
+        meta.hadEducationSelection || meta.matchedEducationCount > 0
+          ? input.selectedEducationIds ?? []
+          : Array.isArray(template.selectedEducationIds)
+          ? template.selectedEducationIds
+          : [];
+
+      const nextSkillIds =
+        meta.hadSkillSelection || meta.matchedSkillCount > 0
+          ? input.selectedSkillIds ?? []
+          : Array.isArray(template.selectedSkillIds)
+          ? template.selectedSkillIds
+          : [];
 
       await updateTemplate.mutateAsync({
         id: template.id,
         input: {
-          name: importedTemplate.name ?? template.name,
-          description: importedTemplate.description ?? template.description,
-          includeProfile:
-            importedTemplate.includeProfile ?? template.includeProfile,
+          name: input.name,
+          description: input.description ?? template.description,
+          includeProfile: input.includeProfile ?? template.includeProfile,
           includeLanguages:
-            importedTemplate.includeLanguages ?? template.includeLanguages,
-          selectedExperienceIds: resolveSelectedIds(
-            importedTemplate.selectedExperienceIds
-          ).filter((id: string) =>
-            experiences.some((experience) => experience.id === id)
-          ),
-          selectedEducationIds: resolveSelectedIds(
-            importedTemplate.selectedEducationIds
-          ).filter((id: string) =>
-            education.some((item) => item.id === id)
-          ),
-          selectedSkillIds: resolveSelectedIds(
-            importedTemplate.selectedSkillIds
-          ).filter((id: string) => skills.some((skill) => skill.id === id)),
+            input.includeLanguages ?? template.includeLanguages,
+          selectedExperienceIds: nextExperienceIds,
+          selectedEducationIds: nextEducationIds,
+          selectedSkillIds: nextSkillIds,
         },
       });
 
-      toast.success("Template updated from JSON import");
+      toast.success(`Template "${input.name}" updated`);
+
+      if (warnings.length > 0) {
+        warnings.forEach((message) => toast.warning(message));
+        console.warn("Template import warnings", {
+          templateId: template.id,
+          debug,
+        });
+      }
     } catch (error) {
       console.error(error);
       toast.error(
@@ -247,7 +272,9 @@ export default function CVTemplatesList({
                   Experiences
                 </span>
                 <span className="font-medium">
-                  {resolveSelectedIds(template.selectedExperienceIds).length}
+                  {Array.isArray(template.selectedExperienceIds)
+                    ? template.selectedExperienceIds.length
+                    : 0}
                 </span>
               </div>
               <div>
@@ -255,7 +282,9 @@ export default function CVTemplatesList({
                   Education
                 </span>
                 <span className="font-medium">
-                  {resolveSelectedIds(template.selectedEducationIds).length}
+                  {Array.isArray(template.selectedEducationIds)
+                    ? template.selectedEducationIds.length
+                    : 0}
                 </span>
               </div>
               <div>
@@ -263,7 +292,9 @@ export default function CVTemplatesList({
                   Skills
                 </span>
                 <span className="font-medium">
-                  {resolveSelectedIds(template.selectedSkillIds).length}
+                  {Array.isArray(template.selectedSkillIds)
+                    ? template.selectedSkillIds.length
+                    : 0}
                 </span>
               </div>
             </div>

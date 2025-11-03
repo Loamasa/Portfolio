@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,11 +15,13 @@ import CVEducationForm from "@/components/cv/CVEducationForm";
 import CVSkillForm from "@/components/cv/CVSkillForm";
 import CVTemplateForm from "@/components/cv/CVTemplateForm";
 import {
+  useCreateCvTemplate,
   useCvEducation,
   useCvExperiences,
   useCvProfile,
   useCvSkills,
 } from "@/hooks/cv";
+import { buildTemplateImportResult } from "@/lib/cv-template-import";
 import { toast } from "sonner";
 
 export default function CVManagerExpanded() {
@@ -30,11 +32,13 @@ export default function CVManagerExpanded() {
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [isExportingJson, setIsExportingJson] = useState(false);
   const [isExportingAiJson, setIsExportingAiJson] = useState(false);
+  const templateImportInputRef = useRef<HTMLInputElement | null>(null);
 
   const profileQuery = useCvProfile();
   const experiencesQuery = useCvExperiences();
   const educationQuery = useCvEducation();
   const skillsQuery = useCvSkills();
+  const createTemplateMutation = useCreateCvTemplate();
 
   const profile = profileQuery.data ?? null;
   const experiences = experiencesQuery.data ?? [];
@@ -150,6 +154,42 @@ export default function CVManagerExpanded() {
     } catch (error) {
       console.error("Failed to import CV:", error);
       toast.error("Failed to import CV data");
+    }
+  };
+
+  const handleImportTemplateFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const { input, warnings, debug } = buildTemplateImportResult(
+        data,
+        { experiences, education, skills }
+      );
+
+      const created = await createTemplateMutation.mutateAsync({
+        name: input.name,
+        description: input.description ?? null,
+        includeProfile: input.includeProfile ?? true,
+        includeLanguages: input.includeLanguages ?? true,
+        selectedExperienceIds: input.selectedExperienceIds ?? [],
+        selectedEducationIds: input.selectedEducationIds ?? [],
+        selectedSkillIds: input.selectedSkillIds ?? [],
+      });
+
+      toast.success(`Template "${created.name}" imported successfully`);
+
+      if (warnings.length > 0) {
+        warnings.forEach((message) => toast.warning(message));
+        console.warn("Template import warnings", {
+          templateId: created.id,
+          debug,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to import template JSON", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to import template JSON"
+      );
     }
   };
 
@@ -427,13 +467,37 @@ export default function CVManagerExpanded() {
                     Create tailored configurations and export them as JSON for specific opportunities
                   </p>
                 </div>
-                <Button
-                  onClick={() => setShowCreateTemplate((prev) => !prev)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  {showCreateTemplate ? "Hide Form" : "Create Template"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={templateImportInputRef}
+                    type="file"
+                    accept="application/json"
+                    className="hidden"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        await handleImportTemplateFile(file);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => templateImportInputRef.current?.click()}
+                    disabled={createTemplateMutation.isPending}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Import Template
+                  </Button>
+                  <Button
+                    onClick={() => setShowCreateTemplate((prev) => !prev)}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {showCreateTemplate ? "Hide Form" : "Create Template"}
+                  </Button>
+                </div>
               </div>
 
               {showCreateTemplate && (
@@ -445,7 +509,10 @@ export default function CVManagerExpanded() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <CVTemplateForm onSuccess={() => setShowCreateTemplate(false)} onCancel={() => setShowCreateTemplate(false)} />
+                    <CVTemplateForm
+                      onSuccess={() => setShowCreateTemplate(false)}
+                      onCancel={() => setShowCreateTemplate(false)}
+                    />
                   </CardContent>
                 </Card>
               )}

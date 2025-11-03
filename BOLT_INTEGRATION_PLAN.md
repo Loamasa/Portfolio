@@ -325,14 +325,28 @@ await supabase.auth.signOut();
 - 🔄 Confirm optimistic UI states resolve correctly after network round-trips in Bolt’s live preview
 - 📝 Capture any Supabase-side schema adjustments discovered during testing (e.g., additional indexes) and reflect them in migrations if needed
 
+#### Phase 4.5: CV Template Builder & JSON Workflows 🔁 BOLT QA REMAINING
+**Code Delivered in Codex:**
+- ✅ Added `CVTemplateForm` with multi-select checklists for experiences, education, and skills plus toggles for profile/languages inclusion
+- ✅ Introduced Supabase mutations for creating, updating, deleting, and listing CV templates (`src/hooks/cv/templates.ts`)
+- ✅ Implemented per-template JSON export/import with mismatch diagnostics in `CVTemplatesList`
+- ✅ Added global template JSON import in `CVManagerExpanded` that maps incoming selections to the user’s Supabase data
+- ✅ Created `src/lib/cv-template-import.ts` to normalise template payloads and surface warnings for unmatched entries
+
+**Bolt.New Validation Still Required:**
+- 🔁 Validate creating, editing, importing, exporting, and deleting templates end-to-end against Supabase (ensure selections appear in preview)
+- 🧩 Confirm JSON imports reconnect to existing experiences/education/skills for real accounts; capture any unmatched warnings for follow-up
+- 👥 Test template flows across multiple users in Bolt to verify templates remain scoped to each Supabase user ID
+- 📄 Export a template JSON in Bolt and re-import it to guarantee parity with live Supabase data
+
 #### Phase 5: Data Layer Migration (Portfolio Management) ⏳ PENDING
-- Mirror the Supabase + React Query patterns from Phase 4 for portfolio projects, blog posts, and settings
+- Mirror the Supabase + React Query patterns from Phases 4–4.5 for portfolio projects, blog posts, and settings
 - Replace remaining mock/tRPC calls in portfolio/blog pages with the new hooks
 - Respect publish status in public views and ensure admin routes reuse the existing auth + query client context
 - ⚠️ Bolt Task: Validate anonymous vs authenticated access to published content once hooks are wired up
 
 #### Phase 6-9: Polish & Testing ⏳ PENDING
-- Extend import/export utilities to work with Supabase UUID-based payloads
+- Extend import/export utilities to work with Supabase UUID-based payloads (reuse template helpers where possible)
 - Polish UI states introduced in Phase 4 (loading, empty, and error views)
 - Add automated tests that mock Supabase responses for the new hooks
 - Update documentation to reflect the Supabase data layer across CV, portfolio, and blog features
