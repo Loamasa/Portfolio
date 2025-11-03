@@ -13,7 +13,13 @@ import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBann
 import CVExperienceForm from "@/components/cv/CVExperienceForm";
 import CVEducationForm from "@/components/cv/CVEducationForm";
 import CVSkillForm from "@/components/cv/CVSkillForm";
-import { useCvEducation, useCvExperiences, useCvProfile, useCvSkills } from "@/hooks/cv";
+import CVTemplateForm from "@/components/cv/CVTemplateForm";
+import {
+  useCvEducation,
+  useCvExperiences,
+  useCvProfile,
+  useCvSkills,
+} from "@/hooks/cv";
 import { toast } from "sonner";
 
 export default function CVManagerExpanded() {
@@ -21,6 +27,7 @@ export default function CVManagerExpanded() {
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [showAddEducation, setShowAddEducation] = useState(false);
   const [showAddSkill, setShowAddSkill] = useState(false);
+  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [isExportingJson, setIsExportingJson] = useState(false);
   const [isExportingAiJson, setIsExportingAiJson] = useState(false);
 
@@ -413,15 +420,50 @@ export default function CVManagerExpanded() {
 
             {/* Templates Tab */}
             <TabsContent value="templates" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">CV Templates</h2>
+                  <p className="text-muted-foreground">
+                    Create tailored configurations and export them as JSON for specific opportunities
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowCreateTemplate((prev) => !prev)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {showCreateTemplate ? "Hide Form" : "Create Template"}
+                </Button>
+              </div>
+
+              {showCreateTemplate && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle>New CV Template</CardTitle>
+                    <CardDescription>
+                      Choose which sections and entries should appear in this configuration
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CVTemplateForm onSuccess={() => setShowCreateTemplate(false)} onCancel={() => setShowCreateTemplate(false)} />
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader>
-                  <CardTitle>CV Templates</CardTitle>
+                  <CardTitle>Saved Templates</CardTitle>
                   <CardDescription>
-                    Create and manage targeted CV templates for different opportunities
+                    Import and export JSON snapshots tied to each template or remove templates you no longer need
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CVTemplatesList templates={[]} />
+                  <CVTemplatesList
+                    profile={profile}
+                    experiences={experiences}
+                    education={education}
+                    skills={skills}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
