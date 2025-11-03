@@ -2,7 +2,7 @@ import { CvExperience } from "@/types/cv";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { useDeleteCvExperience } from "@/hooks/cv";
 import { toast } from "sonner";
 
 interface CVExperienceListProps {
@@ -10,14 +10,12 @@ interface CVExperienceListProps {
 }
 
 export default function CVExperienceList({ experiences }: CVExperienceListProps) {
-  const deleteMutation = trpc.cv.deleteExperience.useMutation();
-  const utils = trpc.useUtils();
+  const deleteMutation = useDeleteCvExperience();
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this experience?")) {
       try {
-        await deleteMutation.mutateAsync({ id });
-        await utils.cv.getExperiences.invalidate();
+        await deleteMutation.mutateAsync(id);
         toast.success("Experience deleted");
       } catch (error) {
         toast.error("Failed to delete experience");
@@ -76,4 +74,3 @@ export default function CVExperienceList({ experiences }: CVExperienceListProps)
     </div>
   );
 }
-

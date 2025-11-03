@@ -2,7 +2,7 @@ import { CvEducation } from "@/types/cv";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { useDeleteCvEducation } from "@/hooks/cv";
 import { toast } from "sonner";
 
 interface CVEducationListProps {
@@ -10,14 +10,12 @@ interface CVEducationListProps {
 }
 
 export default function CVEducationList({ education }: CVEducationListProps) {
-  const deleteMutation = trpc.cv.deleteEducation.useMutation();
-  const utils = trpc.useUtils();
+  const deleteMutation = useDeleteCvEducation();
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this education entry?")) {
       try {
-        await deleteMutation.mutateAsync({ id });
-        await utils.cv.getEducation.invalidate();
+        await deleteMutation.mutateAsync(id);
         toast.success("Education entry deleted");
       } catch (error) {
         toast.error("Failed to delete education entry");
@@ -78,4 +76,3 @@ export default function CVEducationList({ education }: CVEducationListProps) {
     </div>
   );
 }
-
