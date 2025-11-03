@@ -20,6 +20,10 @@ import {
   useCvExperiences,
   useCvProfile,
   useCvSkills,
+  useUpsertCvProfile,
+  useCreateCvExperience,
+  useCreateCvEducation,
+  useCreateCvSkill,
 } from "@/hooks/cv";
 import { buildTemplateImportResult } from "@/lib/cv-template-import";
 import { toast } from "sonner";
@@ -38,6 +42,10 @@ export default function CVManagerExpanded() {
   const educationQuery = useCvEducation();
   const skillsQuery = useCvSkills();
   const createTemplateMutation = useCreateCvTemplate();
+  const upsertProfileMutation = useUpsertCvProfile();
+  const createExperienceMutation = useCreateCvExperience();
+  const createEducationMutation = useCreateCvEducation();
+  const createSkillMutation = useCreateCvSkill();
 
   const profile = profileQuery.data ?? null;
   const experiences = experiencesQuery.data ?? [];
@@ -181,11 +189,136 @@ For more details, see the database schema in supabase/migrations/
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      console.log("Imported data:", data);
-      toast.success("Import file loaded. Apply logic to persist data.");
+
+      if (!data.profile && !data.experiences && !data.education && !data.skills) {
+        toast.error("Invalid CV export file. Missing required data structure.");
+        return;
+      }
+
+      let importStats = {
+        profile: false,
+        experiences: 0,
+        education: 0,
+        skills: 0,
+        errors: [] as string[],
+      };
+
+      if (data.profile && data.profile.fullName) {
+        try {
+          await upsertProfileMutation.mutateAsync({
+            fullName: data.profile.fullName,
+            title: data.profile.title ?? undefined,
+            email: data.profile.email ?? undefined,
+            phone: data.profile.phone ?? undefined,
+            location: data.profile.location ?? undefined,
+            dateOfBirth: data.profile.dateOfBirth ?? undefined,
+            nationality: data.profile.nationality ?? undefined,
+            profilePhoto: data.profile.profilePhoto ?? undefined,
+            profileSummary: data.profile.profileSummary ?? undefined,
+            coreStrengths: data.profile.coreStrengths ?? undefined,
+            languages: data.profile.languages ?? undefined,
+          });
+          importStats.profile = true;
+        } catch (error) {
+          console.error("Failed to import profile:", error);
+          importStats.errors.push("Profile import failed");
+        }
+      }
+
+      if (Array.isArray(data.experiences)) {
+        for (const exp of data.experiences) {
+          if (exp.jobTitle && exp.company && exp.startDate) {
+            try {
+              await createExperienceMutation.mutateAsync({
+                jobTitle: exp.jobTitle,
+                company: exp.company,
+                location: exp.location ?? undefined,
+                startDate: exp.startDate,
+                endDate: exp.isCurrent ? undefined : exp.endDate ?? undefined,
+                isCurrent: exp.isCurrent ?? false,
+                overview: exp.overview ?? undefined,
+                roleCategories: exp.roleCategories ?? undefined,
+                description: exp.description ?? undefined,
+                order: exp.order ?? 0,
+              });
+              importStats.experiences++;
+            } catch (error) {
+              console.error("Failed to import experience:", error);
+              importStats.errors.push(`Experience "${exp.jobTitle}" failed`);
+            }
+          }
+        }
+      }
+
+      if (Array.isArray(data.education)) {
+        for (const edu of data.education) {
+          if (edu.school && edu.startDate) {
+            try {
+              await createEducationMutation.mutateAsync({
+                school: edu.school,
+                degree: edu.degree ?? undefined,
+                field: edu.field ?? undefined,
+                location: edu.location ?? undefined,
+                startDate: edu.startDate,
+                endDate: edu.isOngoing ? undefined : edu.endDate ?? undefined,
+                isOngoing: edu.isOngoing ?? false,
+                overview: edu.overview ?? undefined,
+                educationSections: edu.educationSections ?? undefined,
+                website: edu.website ?? undefined,
+                eqfLevel: edu.eqfLevel ?? undefined,
+                description: edu.description ?? undefined,
+                order: edu.order ?? 0,
+              });
+              importStats.education++;
+            } catch (error) {
+              console.error("Failed to import education:", error);
+              importStats.errors.push(`Education "${edu.school}" failed`);
+            }
+          }
+        }
+      }
+
+      if (Array.isArray(data.skills)) {
+        for (const skill of data.skills) {
+          if (skill.skillName) {
+            try {
+              await createSkillMutation.mutateAsync({
+                skillName: skill.skillName,
+                category: skill.category ?? undefined,
+                proficiency: skill.proficiency ?? undefined,
+                order: skill.order ?? 0,
+              });
+              importStats.skills++;
+            } catch (error) {
+              console.error("Failed to import skill:", error);
+              importStats.errors.push(`Skill "${skill.skillName}" failed`);
+            }
+          }
+        }
+      }
+
+      const successParts = [];
+      if (importStats.profile) successParts.push("Profile");
+      if (importStats.experiences > 0) successParts.push(`${importStats.experiences} Experience(s)`);
+      if (importStats.education > 0) successParts.push(`${importStats.education} Education(s)`);
+      if (importStats.skills > 0) successParts.push(`${importStats.skills} Skill(s)`);
+
+      if (successParts.length > 0) {
+        toast.success(`Successfully imported: ${successParts.join(", ")}`);
+      }
+
+      if (importStats.errors.length > 0) {
+        toast.error(`Some items failed to import: ${importStats.errors.join(", ")}`);
+      }
+
+      if (successParts.length === 0 && importStats.errors.length === 0) {
+        toast.info("No valid data found to import. Check file structure.");
+      }
     } catch (error) {
       console.error("Failed to import CV:", error);
-      toast.error("Failed to import CV data");
+      toast.error("Failed to parse or import CV data");
+    } finally {
+      event.target.value = "";
     }
   };
 
