@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { CvProfile } from "../../types/cv";
+import { CvProfile } from "@/types/cv";
 import { toast } from "sonner";
 
 interface CVProfileFormProps {

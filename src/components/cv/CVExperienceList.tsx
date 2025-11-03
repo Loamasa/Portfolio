@@ -1,35 +1,35 @@
-import { CvEducation } from "../../types/cv";
+import { CvExperience } from "@/types/cv";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 
-interface CVEducationListProps {
-  education: CvEducation[];
+interface CVExperienceListProps {
+  experiences: CvExperience[];
 }
 
-export default function CVEducationList({ education }: CVEducationListProps) {
-  const deleteMutation = trpc.cv.deleteEducation.useMutation();
+export default function CVExperienceList({ experiences }: CVExperienceListProps) {
+  const deleteMutation = trpc.cv.deleteExperience.useMutation();
   const utils = trpc.useUtils();
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this education entry?")) {
+    if (confirm("Are you sure you want to delete this experience?")) {
       try {
         await deleteMutation.mutateAsync({ id });
-        await utils.cv.getEducation.invalidate();
-        toast.success("Education entry deleted");
+        await utils.cv.getExperiences.invalidate();
+        toast.success("Experience deleted");
       } catch (error) {
-        toast.error("Failed to delete education entry");
+        toast.error("Failed to delete experience");
       }
     }
   };
 
-  if (!education || education.length === 0) {
+  if (!experiences || experiences.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-slate-600 text-center">No education entries added yet</p>
+          <p className="text-slate-600 text-center">No experiences added yet</p>
         </CardContent>
       </Card>
     );
@@ -37,15 +37,13 @@ export default function CVEducationList({ education }: CVEducationListProps) {
 
   return (
     <div className="space-y-4">
-      {education.map((edu) => (
-        <Card key={edu.id}>
+      {experiences.map((exp) => (
+        <Card key={exp.id}>
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle>{edu.school}</CardTitle>
-                <CardDescription className="font-semibold">
-                  {edu.degree} {edu.field && `in ${edu.field}`}
-                </CardDescription>
+                <CardTitle>{exp.jobTitle}</CardTitle>
+                <CardDescription className="font-semibold">{exp.company}</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm">
@@ -54,7 +52,7 @@ export default function CVEducationList({ education }: CVEducationListProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(edu.id)}
+                  onClick={() => handleDelete(exp.id)}
                   disabled={deleteMutation.isPending}
                 >
                   <Trash2 className="w-4 h-4" />
@@ -64,13 +62,13 @@ export default function CVEducationList({ education }: CVEducationListProps) {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex justify-between text-sm text-slate-600">
-              <span>{edu.location}</span>
+              <span>{exp.location}</span>
               <span>
-                {edu.startDate} - {edu.isOngoing ? "Ongoing" : edu.endDate}
+                {exp.startDate} - {exp.isCurrent ? "Present" : exp.endDate}
               </span>
             </div>
-            {edu.description && (
-              <p className="text-slate-700 whitespace-pre-wrap">{edu.description}</p>
+            {exp.description && (
+              <p className="text-slate-700 whitespace-pre-wrap">{exp.description}</p>
             )}
           </CardContent>
         </Card>
