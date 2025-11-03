@@ -65,9 +65,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700" htmlFor="password">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700" htmlFor="password">
+                Password
+              </label>
+              <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

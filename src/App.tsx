@@ -9,6 +9,8 @@ import CVManager from "./pages/CVManager";
 import AdminPanel from "./pages/AdminPanel";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AuthGate } from "./components/auth/AuthGate";
 
@@ -18,6 +20,8 @@ function Router() {
       <Route path={"/"} component={Home} />
       <Route path={"/login"} component={Login} />
       <Route path={"/signup"} component={Signup} />
+      <Route path={"/forgot-password"} component={ForgotPassword} />
+      <Route path={"/reset-password"} component={ResetPassword} />
       <Route path={"/cv-manager"}>
         {() => (
           <AuthGate>

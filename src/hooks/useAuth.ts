@@ -43,16 +43,31 @@ export function useAuth() {
     }
   }, []);
 
+  const resendVerification = useCallback(async () => {
+    if (!context.user?.email) {
+      throw new Error("No user email found");
+    }
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: context.user.email,
+    });
+    if (error) {
+      throw error;
+    }
+  }, [context.user?.email]);
+
   const authState = useMemo(
     () => ({
       ...context,
       isAuthenticated: !!context.user,
       isAdmin: context.user?.user_metadata?.role === "admin",
+      isEmailVerified: context.user?.email_confirmed_at != null,
       login,
       signup,
       logout,
+      resendVerification,
     }),
-    [context, login, logout, signup]
+    [context, login, logout, signup, resendVerification]
   );
 
   return authState;

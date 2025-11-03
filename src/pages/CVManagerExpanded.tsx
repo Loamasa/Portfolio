@@ -10,6 +10,7 @@ import CVEducationList from "@/components/cv/CVEducationList";
 import CVSkillsList from "@/components/cv/CVSkillsList";
 import CVTemplatesList from "@/components/cv/CVTemplatesList";
 import CVPreview from "@/components/cv/CVPreview";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
 
 export default function CVManagerExpanded() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -74,14 +75,16 @@ export default function CVManagerExpanded() {
   };
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">CV Manager</h1>
-          <p className="text-muted-foreground">
-            Manage your CV data and create targeted CVs for different opportunities
-          </p>
-        </div>
+    <div className="min-h-screen bg-background">
+      <EmailVerificationBanner />
+      <div className="py-12 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2">CV Manager</h1>
+            <p className="text-muted-foreground">
+              Manage your CV data and create targeted CVs for different opportunities
+            </p>
+          </div>
 
         {/* Export/Import Actions */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -314,6 +317,7 @@ export default function CVManagerExpanded() {
               }}
             />
           )}
+        </div>
         </div>
       </div>
     </div>

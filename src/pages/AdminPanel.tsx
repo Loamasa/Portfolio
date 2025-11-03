@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Settings, LogOut, Briefcase, BookOpen, FileText } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
+import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
 
 export default function AdminPanel() {
   const { user, isAuthenticated, loading, logout } = useAuth();
@@ -37,6 +38,7 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <EmailVerificationBanner />
       {/* Header */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
