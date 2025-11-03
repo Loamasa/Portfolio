@@ -8,7 +8,7 @@
 **Integration Date:** November 3, 2025
 **Last Updated:** November 3, 2025
 **Document Version:** 1.2
-**Status:** Phase 3 Complete - Authentication Fully Implemented
+**Status:** Phase 4 Implementation Delivered – Pending Bolt QA Sign-off
 
 ---
 
@@ -311,30 +311,51 @@ await supabase.auth.signOut();
 - `/src/pages/CVManagerExpanded.tsx` - Added email verification banner
 - `/src/pages/AdminPanel.tsx` - Added email verification banner
 
-#### Phase 4: Data Layer Migration (CV Management) 🔄 NEXT
-- Replace tRPC with Supabase client queries
-- Create React Query hooks for CV data
-- Update components to use new data layer
-- Implement optimistic updates
+#### Phase 4: Data Layer Migration (CV Management) 🔁 BOLT QA REMAINING
+**Code Delivered in Codex:**
+- ✅ Replaced all tRPC CV calls with Supabase-backed React Query hooks (`src/hooks/cv/*`)
+- ✅ Updated CV manager UI to surface Supabase data, including blue “Add” flows for experiences, education, and skills
+- ✅ Refreshed personal information form to patch profile rows directly in Supabase
+- ✅ Synced JSON import/export handling with new Supabase UUID schema
+- ✅ Wrapped CV views in shared `QueryClientProvider` to support caching and optimistic updates
+
+**Bolt.New Validation Still Required:**
+- 🔵 Run through the CV Manager tabs in Bolt to confirm create/update/delete flows succeed against Supabase (personal information, experiences, education, skills)
+- 🔒 Verify Supabase RLS by signing in with a second account in Bolt and ensuring data isolation
+- 🔄 Confirm optimistic UI states resolve correctly after network round-trips in Bolt’s live preview
+- 📝 Capture any Supabase-side schema adjustments discovered during testing (e.g., additional indexes) and reflect them in migrations if needed
+
+#### Phase 4.5: CV Template Builder & JSON Workflows 🔁 BOLT QA REMAINING
+**Code Delivered in Codex:**
+- ✅ Added `CVTemplateForm` with multi-select checklists for experiences, education, and skills plus toggles for profile/languages inclusion
+- ✅ Introduced Supabase mutations for creating, updating, deleting, and listing CV templates (`src/hooks/cv/templates.ts`)
+- ✅ Implemented per-template JSON export/import with mismatch diagnostics in `CVTemplatesList`
+- ✅ Added global template JSON import in `CVManagerExpanded` that maps incoming selections to the user’s Supabase data
+- ✅ Created `src/lib/cv-template-import.ts` to normalise template payloads and surface warnings for unmatched entries
+
+**Bolt.New Validation Still Required:**
+- 🔁 Validate creating, editing, importing, exporting, and deleting templates end-to-end against Supabase (ensure selections appear in preview)
+- 🧩 Confirm JSON imports reconnect to existing experiences/education/skills for real accounts; capture any unmatched warnings for follow-up
+- 👥 Test template flows across multiple users in Bolt to verify templates remain scoped to each Supabase user ID
+- 📄 Export a template JSON in Bolt and re-import it to guarantee parity with live Supabase data
 
 #### Phase 5: Data Layer Migration (Portfolio Management) ⏳ PENDING
-- Create hooks for portfolio and blog data
-- Update admin panel components
-- Implement public/private content views
+- Mirror the Supabase + React Query patterns from Phases 4–4.5 for portfolio projects, blog posts, and settings
+- Replace remaining mock/tRPC calls in portfolio/blog pages with the new hooks
+- Respect publish status in public views and ensure admin routes reuse the existing auth + query client context
+- ⚠️ Bolt Task: Validate anonymous vs authenticated access to published content once hooks are wired up
 
 #### Phase 6-9: Polish & Testing ⏳ PENDING
-- Import/export functionality
-- UI/UX improvements
-- Comprehensive testing
-- Documentation updates
+- Extend import/export utilities to work with Supabase UUID-based payloads (reuse template helpers where possible)
+- Polish UI states introduced in Phase 4 (loading, empty, and error views)
+- Add automated tests that mock Supabase responses for the new hooks
+- Update documentation to reflect the Supabase data layer across CV, portfolio, and blog features
 
 ### Known Issues
 
-**TypeScript Compilation Errors:**
-- Components still reference old integer ID types (will be fixed in Phase 4)
-- Mock tRPC interface expects number IDs instead of string UUIDs
-- Template JSONB array parsing needs updates
-- These errors are expected at this stage and will be resolved when implementing Phase 4
+**TypeScript Compilation Status:**
+- CV manager now compiles against Supabase UUID types delivered in Phase 4
+- Portfolio/blog modules still depend on legacy mocks and will be addressed in Phase 5
 
 **Database Schema:**
 - All migrations successfully applied ✅

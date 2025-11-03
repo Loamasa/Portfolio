@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit2, Trash2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { useDeleteCvSkill } from "@/hooks/cv";
 import { toast } from "sonner";
 
 interface CVSkillsListProps {
@@ -11,14 +11,12 @@ interface CVSkillsListProps {
 }
 
 export default function CVSkillsList({ skills }: CVSkillsListProps) {
-  const deleteMutation = trpc.cv.deleteSkill.useMutation();
-  const utils = trpc.useUtils();
+  const deleteMutation = useDeleteCvSkill();
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this skill?")) {
       try {
-        await deleteMutation.mutateAsync({ id });
-        await utils.cv.getSkills.invalidate();
+        await deleteMutation.mutateAsync(id);
         toast.success("Skill deleted");
       } catch (error) {
         toast.error("Failed to delete skill");
@@ -36,7 +34,6 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
     );
   }
 
-  // Group skills by category
   const groupedSkills = skills.reduce((acc, skill) => {
     const category = skill.category || "Other";
     if (!acc[category]) acc[category] = [];
@@ -78,4 +75,3 @@ export default function CVSkillsList({ skills }: CVSkillsListProps) {
     </div>
   );
 }
-

@@ -1,106 +1,310 @@
-import { CvTemplate } from "@/types/cv";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Trash2, Download } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Download, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import {
+  useCvTemplates,
+  useDeleteCvTemplate,
+  useUpdateCvTemplate,
+} from "@/hooks/cv";
+import { buildTemplateImportResult } from "@/lib/cv-template-import";
+import {
+  CvEducation,
+  CvExperience,
+  CvProfile,
+  CvSkill,
+  CvTemplate,
+} from "@/types/cv";
 
 interface CVTemplatesListProps {
-  templates: CvTemplate[];
+  profile: CvProfile | null;
+  experiences: CvExperience[];
+  education: CvEducation[];
+  skills: CvSkill[];
 }
 
-export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
-  const deleteMutation = trpc.cv.deleteTemplate.useMutation();
-  const utils = trpc.useUtils();
+export default function CVTemplatesList({
+  profile,
+  experiences,
+  education,
+  skills,
+}: CVTemplatesListProps) {
+  const { data: templates, isLoading } = useCvTemplates();
+  const deleteTemplate = useDeleteCvTemplate();
+  const updateTemplate = useUpdateCvTemplate();
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Are you sure you want to delete this template?")) {
-      try {
-        await deleteMutation.mutateAsync({ id });
-        await utils.cv.getTemplates.invalidate();
-        toast.success("Template deleted");
-      } catch (error) {
-        toast.error("Failed to delete template");
-      }
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete template "${name}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteTemplate.mutateAsync(id);
+      toast.success("Template deleted");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete template");
     }
   };
 
-  const handleExportTemplate = async (templateId: string) => {
+  const handleExportTemplate = (template: CvTemplate) => {
     try {
-      const data = await utils.cv.exportJson.fetch({ templateId });
-      const jsonString = JSON.stringify(data, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
+      const selectedExperienceIds = Array.isArray(
+        template.selectedExperienceIds
+      )
+        ? template.selectedExperienceIds
+        : [];
+      const selectedEducationIds = Array.isArray(
+        template.selectedEducationIds
+      )
+        ? template.selectedEducationIds
+        : [];
+      const selectedSkillIds = Array.isArray(template.selectedSkillIds)
+        ? template.selectedSkillIds
+        : [];
+
+      const payload = {
+        template: {
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          includeProfile: template.includeProfile,
+          includeLanguages: template.includeLanguages,
+          selectedExperienceIds,
+          selectedEducationIds,
+          selectedSkillIds,
+        },
+        profile: template.includeProfile ? profile : null,
+        experiences: experiences.filter((experience) =>
+          selectedExperienceIds.includes(experience.id)
+        ),
+        education: education.filter((item) =>
+          selectedEducationIds.includes(item.id)
+        ),
+        skills: skills.filter((skill) => selectedSkillIds.includes(skill.id)),
+        exportedAt: new Date().toISOString(),
+      };
+
+      const jsonString = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cv-template-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${template.name.replace(/\s+/g, "-").toLowerCase()}-${
+        new Date().toISOString().split("T")[0]
+      }.json`;
+      link.click();
       URL.revokeObjectURL(url);
       toast.success("Template exported");
     } catch (error) {
+      console.error(error);
       toast.error("Failed to export template");
     }
   };
+
+  const handleImportTemplate = async (template: CvTemplate, file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      const { input, warnings, debug, meta } = buildTemplateImportResult(
+        data,
+        { experiences, education, skills },
+        {
+          fallbackName: template.name,
+          fallbackDescription: template.description ?? null,
+        }
+      );
+
+      const nextExperienceIds =
+        meta.hadExperienceSelection || meta.matchedExperienceCount > 0
+          ? input.selectedExperienceIds ?? []
+          : Array.isArray(template.selectedExperienceIds)
+          ? template.selectedExperienceIds
+          : [];
+
+      const nextEducationIds =
+        meta.hadEducationSelection || meta.matchedEducationCount > 0
+          ? input.selectedEducationIds ?? []
+          : Array.isArray(template.selectedEducationIds)
+          ? template.selectedEducationIds
+          : [];
+
+      const nextSkillIds =
+        meta.hadSkillSelection || meta.matchedSkillCount > 0
+          ? input.selectedSkillIds ?? []
+          : Array.isArray(template.selectedSkillIds)
+          ? template.selectedSkillIds
+          : [];
+
+      await updateTemplate.mutateAsync({
+        id: template.id,
+        input: {
+          name: input.name,
+          description: input.description ?? template.description,
+          includeProfile: input.includeProfile ?? template.includeProfile,
+          includeLanguages:
+            input.includeLanguages ?? template.includeLanguages,
+          selectedExperienceIds: nextExperienceIds,
+          selectedEducationIds: nextEducationIds,
+          selectedSkillIds: nextSkillIds,
+        },
+      });
+
+      toast.success(`Template "${input.name}" updated`);
+
+      if (warnings.length > 0) {
+        warnings.forEach((message) => toast.warning(message));
+        console.warn("Template import warnings", {
+          templateId: template.id,
+          debug,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to import template"
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <p className="text-center text-sm text-muted-foreground">
+            Loading templates...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!templates || templates.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-slate-600 text-center">No templates created yet. Create one to save your CV configuration.</p>
+          <p className="text-center text-sm text-muted-foreground">
+            No templates created yet. Create one to save your CV configuration.
+          </p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="grid md:grid-cols-2 gap-6">
+    <div className="grid gap-6 md:grid-cols-2">
       {templates.map((template) => (
-        <Card key={template.id}>
+        <Card key={template.id} className="flex flex-col">
           <CardHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <CardTitle>{template.name}</CardTitle>
+                <CardTitle className="text-lg font-semibold">
+                  {template.name}
+                </CardTitle>
+                <CardDescription>
+                  Updated {new Date(template.updatedAt).toLocaleDateString()}
+                </CardDescription>
                 {template.isDefault && (
                   <Badge className="mt-2">Default</Badge>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={() => handleExportTemplate(template.id)}
+                  size="icon"
+                  onClick={() => handleExportTemplate(template)}
+                  title="Export template JSON"
                 >
-                  <Download className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Edit2 className="w-4 h-4" />
+                  <Download className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(template.id)}
-                  disabled={deleteMutation.isPending}
+                  size="icon"
+                  onClick={() => fileInputs.current[template.id]?.click()}
+                  title="Import JSON into template"
+                  disabled={updateTemplate.isPending}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Upload className="h-4 w-4" />
+                </Button>
+                <input
+                  ref={(element) => {
+                    fileInputs.current[template.id] = element;
+                  }}
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      await handleImportTemplate(template, file);
+                      event.target.value = "";
+                    }
+                  }}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDelete(template.id, template.name)}
+                  disabled={deleteTemplate.isPending}
+                  title="Delete template"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-1 flex-col gap-4">
             {template.description && (
-              <p className="text-slate-600">{template.description}</p>
+              <p className="text-sm text-slate-600">{template.description}</p>
             )}
-            <div className="space-y-2 text-sm text-slate-600">
+            <div className="grid grid-cols-3 gap-2 text-sm text-slate-600">
               <div>
-                Experiences: {(template.selectedExperienceIds as string[] || []).length}
+                <span className="block text-xs uppercase tracking-wide text-slate-500">
+                  Experiences
+                </span>
+                <span className="font-medium">
+                  {Array.isArray(template.selectedExperienceIds)
+                    ? template.selectedExperienceIds.length
+                    : 0}
+                </span>
               </div>
               <div>
-                Education: {(template.selectedEducationIds as string[] || []).length}
+                <span className="block text-xs uppercase tracking-wide text-slate-500">
+                  Education
+                </span>
+                <span className="font-medium">
+                  {Array.isArray(template.selectedEducationIds)
+                    ? template.selectedEducationIds.length
+                    : 0}
+                </span>
               </div>
               <div>
-                Skills: {(template.selectedSkillIds as string[] || []).length}
+                <span className="block text-xs uppercase tracking-wide text-slate-500">
+                  Skills
+                </span>
+                <span className="font-medium">
+                  {Array.isArray(template.selectedSkillIds)
+                    ? template.selectedSkillIds.length
+                    : 0}
+                </span>
               </div>
+            </div>
+            <div className="rounded-md border border-dashed border-slate-200 p-3 text-xs text-slate-500">
+              <p>
+                Includes profile: <strong>{template.includeProfile ? "Yes" : "No"}</strong>
+              </p>
+              <p>
+                Includes languages: <strong>{template.includeLanguages ? "Yes" : "No"}</strong>
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -108,4 +312,3 @@ export default function CVTemplatesList({ templates }: CVTemplatesListProps) {
     </div>
   );
 }
-
