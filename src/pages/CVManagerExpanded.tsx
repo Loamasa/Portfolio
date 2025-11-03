@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { trpc } from "@/lib/trpc";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,52 +10,124 @@ import CVSkillsList from "@/components/cv/CVSkillsList";
 import CVTemplatesList from "@/components/cv/CVTemplatesList";
 import CVPreview from "@/components/cv/CVPreview";
 import { EmailVerificationBanner } from "@/components/auth/EmailVerificationBanner";
+import CVExperienceForm from "@/components/cv/CVExperienceForm";
+import CVEducationForm from "@/components/cv/CVEducationForm";
+import CVSkillForm from "@/components/cv/CVSkillForm";
+import { useCvEducation, useCvExperiences, useCvProfile, useCvSkills } from "@/hooks/cv";
+import { toast } from "sonner";
 
 export default function CVManagerExpanded() {
   const [activeTab, setActiveTab] = useState("profile");
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [showAddEducation, setShowAddEducation] = useState(false);
   const [showAddSkill, setShowAddSkill] = useState(false);
+  const [isExportingJson, setIsExportingJson] = useState(false);
+  const [isExportingAiJson, setIsExportingAiJson] = useState(false);
 
-  const profileQuery = trpc.cv.getProfile.useQuery();
-  const experiencesQuery = trpc.cv.getExperiences.useQuery();
-  const educationQuery = trpc.cv.getEducation.useQuery();
-  const skillsQuery = trpc.cv.getSkills.useQuery();
+  const profileQuery = useCvProfile();
+  const experiencesQuery = useCvExperiences();
+  const educationQuery = useCvEducation();
+  const skillsQuery = useCvSkills();
 
-  const exportJsonQuery = trpc.cv.exportJson.useQuery({});
-  const exportJsonForAiQuery = trpc.cv.exportJsonForAi.useQuery({});
+  const profile = profileQuery.data ?? null;
+  const experiences = experiencesQuery.data ?? [];
+  const education = educationQuery.data ?? [];
+  const skills = skillsQuery.data ?? [];
+
+  const isLoading = useMemo(
+    () =>
+      profileQuery.isLoading ||
+      experiencesQuery.isLoading ||
+      educationQuery.isLoading ||
+      skillsQuery.isLoading,
+    [
+      profileQuery.isLoading,
+      experiencesQuery.isLoading,
+      educationQuery.isLoading,
+      skillsQuery.isLoading,
+    ]
+  );
 
   const handleExportJson = async () => {
+    if (isLoading) {
+      toast.error("Data is still loading. Please try again in a moment.");
+      return;
+    }
+
     try {
-      if (exportJsonQuery.data) {
-        const jsonString = JSON.stringify(exportJsonQuery.data, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cv-export-${new Date().toISOString().split("T")[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      setIsExportingJson(true);
+      const payload = {
+        profile,
+        experiences,
+        education,
+        skills,
+      };
+      const jsonString = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cv-export-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("CV exported successfully");
     } catch (error) {
       console.error("Failed to export CV:", error);
+      toast.error("Failed to export CV");
+    } finally {
+      setIsExportingJson(false);
     }
   };
 
   const handleExportJsonForAi = async () => {
+    if (isLoading) {
+      toast.error("Data is still loading. Please try again in a moment.");
+      return;
+    }
+
     try {
-      if (exportJsonForAiQuery.data) {
-        const jsonString = JSON.stringify(exportJsonForAiQuery.data, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cv-ai-export-${new Date().toISOString().split("T")[0]}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      setIsExportingAiJson(true);
+      const payload = {
+        summary: profile?.profileSummary ?? "",
+        coreStrengths: profile?.coreStrengths ?? [],
+        languages: profile?.languages ?? [],
+        experiences: experiences.map((exp) => ({
+          jobTitle: exp.jobTitle,
+          company: exp.company,
+          startDate: exp.startDate,
+          endDate: exp.isCurrent ? "Present" : exp.endDate,
+          description: exp.description,
+          overview: exp.overview,
+        })),
+        education: education.map((edu) => ({
+          school: edu.school,
+          degree: edu.degree,
+          field: edu.field,
+          startDate: edu.startDate,
+          endDate: edu.isOngoing ? "Ongoing" : edu.endDate,
+          description: edu.description,
+        })),
+        skills: skills.map((skill) => ({
+          name: skill.skillName,
+          category: skill.category,
+          proficiency: skill.proficiency,
+        })),
+      };
+
+      const jsonString = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cv-ai-export-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("AI-friendly export generated");
     } catch (error) {
       console.error("Failed to export CV for AI:", error);
+      toast.error("Failed to export AI JSON");
+    } finally {
+      setIsExportingAiJson(false);
     }
   };
 
@@ -67,12 +138,74 @@ export default function CVManagerExpanded() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      // TODO: Implement import mutation
       console.log("Imported data:", data);
+      toast.success("Import file loaded. Apply logic to persist data.");
     } catch (error) {
       console.error("Failed to import CV:", error);
+      toast.error("Failed to import CV data");
     }
   };
+
+  const previewData = useMemo(() => {
+    if (!profile && experiences.length === 0 && education.length === 0 && skills.length === 0) {
+      return null;
+    }
+
+    return {
+      profile: profile
+        ? {
+            fullName: profile.fullName,
+            title: profile.title,
+            email: profile.email,
+            phone: profile.phone,
+            location: profile.location,
+            profileSummary: profile.profileSummary,
+            coreStrengths: profile.coreStrengths,
+            languages: profile.languages,
+          }
+        : null,
+      experiences: experiences.map((exp) => ({
+        jobTitle: exp.jobTitle,
+        company: exp.company,
+        location: exp.location,
+        startDate: exp.startDate,
+        endDate: exp.endDate,
+        isCurrent: exp.isCurrent,
+        overview: exp.overview,
+        roleCategories: exp.roleCategories
+          ? exp.roleCategories.map((category) => ({
+              name: category.category,
+              items: category.items,
+            }))
+          : undefined,
+        description: exp.description,
+      })),
+      education: education.map((edu) => ({
+        school: edu.school,
+        degree: edu.degree,
+        field: edu.field,
+        location: edu.location,
+        startDate: edu.startDate,
+        endDate: edu.endDate,
+        isOngoing: edu.isOngoing,
+        overview: edu.overview,
+        educationSections: edu.educationSections
+          ? edu.educationSections.map((section) => ({
+              name: section.title,
+              items: section.items,
+            }))
+          : undefined,
+        website: edu.website,
+        eqfLevel: edu.eqfLevel,
+        description: edu.description,
+      })),
+      skills: skills.map((skill) => ({
+        skillName: skill.skillName,
+        category: skill.category,
+        proficiency: skill.proficiency,
+      })),
+    };
+  }, [profile, experiences, education, skills]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,241 +219,222 @@ export default function CVManagerExpanded() {
             </p>
           </div>
 
-        {/* Export/Import Actions */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          <Button
-            onClick={handleExportJson}
-            variant="outline"
-            disabled={exportJsonQuery.isLoading}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CV as JSON
-          </Button>
-          <Button
-            onClick={handleExportJsonForAi}
-            variant="outline"
-            disabled={exportJsonForAiQuery.isLoading}
-          >
-            <FileJson className="w-4 h-4 mr-2" />
-            Export for AI
-          </Button>
-          <label>
-            <Button variant="outline" asChild>
-              <span>
-                <Upload className="w-4 h-4 mr-2" />
-                Import from JSON
-              </span>
+          {/* Export/Import Actions */}
+          <div className="flex gap-2 mb-6 flex-wrap">
+            <Button
+              onClick={handleExportJson}
+              variant="outline"
+              disabled={isExportingJson || isLoading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isExportingJson ? "Exporting..." : "Export CV as JSON"}
             </Button>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportJson}
-              className="hidden"
-            />
-          </label>
-        </div>
-
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="experience">Experience</TabsTrigger>
-            <TabsTrigger value="education">Education</TabsTrigger>
-            <TabsTrigger value="skills">Skills</TabsTrigger>
-            <TabsTrigger value="templates">Templates</TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>
-                  Your basic profile information and professional summary
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {profileQuery.data && (
-                  <CVProfileForm profile={profileQuery.data} />
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Experience Tab */}
-          <TabsContent value="experience" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Work Experience</h2>
-                <p className="text-muted-foreground">
-                  Add your work experiences with detailed role categories
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowAddExperience(!showAddExperience)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Experience
+            <Button
+              onClick={handleExportJsonForAi}
+              variant="outline"
+              disabled={isExportingAiJson || isLoading}
+            >
+              <FileJson className="w-4 h-4 mr-2" />
+              {isExportingAiJson ? "Preparing..." : "Export for AI"}
+            </Button>
+            <label>
+              <Button variant="outline" asChild disabled={isLoading}>
+                <span>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import from JSON
+                </span>
               </Button>
-            </div>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportJson}
+                className="hidden"
+              />
+            </label>
+          </div>
 
-            {showAddExperience && (
-              <Card className="border-blue-200 bg-blue-50">
+          {/* Main Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="experience">Experience</TabsTrigger>
+              <TabsTrigger value="education">Education</TabsTrigger>
+              <TabsTrigger value="skills">Skills</TabsTrigger>
+              <TabsTrigger value="templates">Templates</TabsTrigger>
+            </TabsList>
+
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-4">
+              <Card>
                 <CardHeader>
-                  <CardTitle>New Experience</CardTitle>
+                  <CardTitle>Personal Information</CardTitle>
+                  <CardDescription>
+                    Your basic profile information and professional summary
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* TODO: Add experience form component */}
-                  <p className="text-muted-foreground">Experience form coming soon</p>
+                  {profileQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading profile...</p>
+                  ) : (
+                    <CVProfileForm profile={profile} />
+                  )}
                 </CardContent>
               </Card>
-            )}
+            </TabsContent>
 
-            {experiencesQuery.data && (
-              <CVExperienceList experiences={experiencesQuery.data} />
-            )}
-          </TabsContent>
-
-          {/* Education Tab */}
-          <TabsContent value="education" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Education</h2>
-                <p className="text-muted-foreground">
-                  Add your education with structured sections
-                </p>
+            {/* Experience Tab */}
+            <TabsContent value="experience" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold">Work Experience</h2>
+                  <p className="text-muted-foreground">
+                    Add your work experiences with detailed role categories
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowAddExperience((prev) => !prev)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {showAddExperience ? "Hide Form" : "Add Experience"}
+                </Button>
               </div>
-              <Button
-                onClick={() => setShowAddEducation(!showAddEducation)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Education
-              </Button>
-            </div>
 
-            {showAddEducation && (
-              <Card className="border-blue-200 bg-blue-50">
+              {showAddExperience && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle>New Experience</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CVExperienceForm
+                      onSuccess={() => setShowAddExperience(false)}
+                      onCancel={() => setShowAddExperience(false)}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {experiencesQuery.isLoading ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">Loading experiences...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <CVExperienceList experiences={experiences} />
+              )}
+            </TabsContent>
+
+            {/* Education Tab */}
+            <TabsContent value="education" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold">Education</h2>
+                  <p className="text-muted-foreground">
+                    Add your education with structured sections
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowAddEducation((prev) => !prev)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {showAddEducation ? "Hide Form" : "Add Education"}
+                </Button>
+              </div>
+
+              {showAddEducation && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle>New Education</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CVEducationForm
+                      onSuccess={() => setShowAddEducation(false)}
+                      onCancel={() => setShowAddEducation(false)}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {educationQuery.isLoading ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">Loading education...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <CVEducationList education={education} />
+              )}
+            </TabsContent>
+
+            {/* Skills Tab */}
+            <TabsContent value="skills" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold">Skills</h2>
+                  <p className="text-muted-foreground">
+                    Manage your skills and competencies
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setShowAddSkill((prev) => !prev)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  {showAddSkill ? "Hide Form" : "Add Skill"}
+                </Button>
+              </div>
+
+              {showAddSkill && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle>New Skill</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CVSkillForm
+                      onSuccess={() => setShowAddSkill(false)}
+                      onCancel={() => setShowAddSkill(false)}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {skillsQuery.isLoading ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <p className="text-sm text-muted-foreground">Loading skills...</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <CVSkillsList skills={skills} />
+              )}
+            </TabsContent>
+
+            {/* Templates Tab */}
+            <TabsContent value="templates" className="space-y-4">
+              <Card>
                 <CardHeader>
-                  <CardTitle>New Education</CardTitle>
+                  <CardTitle>CV Templates</CardTitle>
+                  <CardDescription>
+                    Create and manage targeted CV templates for different opportunities
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* TODO: Add education form component */}
-                  <p className="text-muted-foreground">Education form coming soon</p>
+                  <CVTemplatesList templates={[]} />
                 </CardContent>
               </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Preview Section */}
+          <div className="mt-8">
+            {previewData && (
+              <CVPreview cvData={previewData} />
             )}
-
-            {educationQuery.data && (
-              <CVEducationList education={educationQuery.data} />
-            )}
-          </TabsContent>
-
-          {/* Skills Tab */}
-          <TabsContent value="skills" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-bold">Skills</h2>
-                <p className="text-muted-foreground">
-                  Manage your skills and competencies
-                </p>
-              </div>
-              <Button
-                onClick={() => setShowAddSkill(!showAddSkill)}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Skill
-              </Button>
-            </div>
-
-            {showAddSkill && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <CardTitle>New Skill</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {/* TODO: Add skill form component */}
-                  <p className="text-muted-foreground">Skill form coming soon</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {skillsQuery.data && (
-              <CVSkillsList skills={skillsQuery.data} />
-            )}
-          </TabsContent>
-
-          {/* Templates Tab */}
-          <TabsContent value="templates" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>CV Templates</CardTitle>
-                <CardDescription>
-                  Create and manage targeted CV templates for different opportunities
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {/* TODO: Add templates management component */}
-                <p className="text-muted-foreground">Templates management coming soon</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Preview Section */}
-        <div className="mt-8">
-          {profileQuery.data && experiencesQuery.data && educationQuery.data && skillsQuery.data && (
-            <CVPreview
-              cvData={{
-                profile: profileQuery.data ? {
-                  fullName: profileQuery.data.fullName,
-                  title: profileQuery.data.title ?? undefined,
-                  email: profileQuery.data.email ?? undefined,
-                  phone: profileQuery.data.phone ?? undefined,
-                  location: profileQuery.data.location ?? undefined,
-                  profileSummary: profileQuery.data.profileSummary ?? undefined,
-                  coreStrengths: profileQuery.data.coreStrengths ? (typeof profileQuery.data.coreStrengths === 'string' ? JSON.parse(profileQuery.data.coreStrengths) : profileQuery.data.coreStrengths) : undefined,
-                  languages: profileQuery.data.languages ? (typeof profileQuery.data.languages === 'string' ? JSON.parse(profileQuery.data.languages) : profileQuery.data.languages) : undefined,
-                } : null,
-                experiences: experiencesQuery.data.map(e => ({
-                  jobTitle: e.jobTitle,
-                  company: e.company,
-                  location: e.location ?? undefined,
-                  startDate: e.startDate,
-                  endDate: e.endDate ?? undefined,
-                  isCurrent: e.isCurrent === 1,
-                  overview: e.overview ?? undefined,
-                  roleCategories: e.roleCategories ? (typeof e.roleCategories === 'string' ? JSON.parse(e.roleCategories) : e.roleCategories) : undefined,
-                  description: e.description ?? undefined,
-                })),
-                education: educationQuery.data.map(e => ({
-                  school: e.school,
-                  degree: e.degree ?? undefined,
-                  field: e.field ?? undefined,
-                  location: e.location ?? undefined,
-                  startDate: e.startDate,
-                  endDate: e.endDate ?? undefined,
-                  isOngoing: e.isOngoing === 1,
-                  overview: e.overview ?? undefined,
-                  educationSections: e.educationSections ? (typeof e.educationSections === 'string' ? JSON.parse(e.educationSections) : e.educationSections) : undefined,
-                  website: e.website ?? undefined,
-                  eqfLevel: e.eqfLevel ?? undefined,
-                  description: e.description ?? undefined,
-                })),
-                skills: skillsQuery.data.map(s => ({
-                  skillName: s.skillName,
-                  category: s.category ?? undefined,
-                  proficiency: s.proficiency ?? undefined,
-                })),
-              }}
-            />
-          )}
-        </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
