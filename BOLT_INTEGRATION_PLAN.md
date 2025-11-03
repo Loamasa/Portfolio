@@ -325,19 +325,37 @@ await supabase.auth.signOut();
 - 🔄 Confirm optimistic UI states resolve correctly after network round-trips in Bolt’s live preview
 - 📝 Capture any Supabase-side schema adjustments discovered during testing (e.g., additional indexes) and reflect them in migrations if needed
 
-#### Phase 4.5: CV Template Builder & JSON Workflows 🔁 BOLT QA REMAINING
-**Code Delivered in Codex:**
+#### Phase 4.5: CV Template Builder & JSON Workflows ✅ CODE COMPLETE - QA PENDING
+**All Features Implemented:**
 - ✅ Added `CVTemplateForm` with multi-select checklists for experiences, education, and skills plus toggles for profile/languages inclusion
+- ✅ **Enhanced `CVTemplateForm` to support EDIT mode** - can now update existing templates with all selections
 - ✅ Introduced Supabase mutations for creating, updating, deleting, and listing CV templates (`src/hooks/cv/templates.ts`)
 - ✅ Implemented per-template JSON export/import with mismatch diagnostics in `CVTemplatesList`
-- ✅ Added global template JSON import in `CVManagerExpanded` that maps incoming selections to the user’s Supabase data
+- ✅ Added global template JSON import in `CVManagerExpanded` that maps incoming selections to the user's Supabase data
 - ✅ Created `src/lib/cv-template-import.ts` to normalise template payloads and surface warnings for unmatched entries
+- ✅ **Added EDIT button** - Opens template in edit mode to modify selections
+- ✅ **Added PDF PREVIEW button** - View CV formatted preview before downloading
+- ✅ **Added PDF DOWNLOAD button** - Generate and download PDF for specific template
+- ✅ PDF generation properly maps data types (category → name for roleCategories, title → name for educationSections)
 
-**Bolt.New Validation Still Required:**
-- 🔁 Validate creating, editing, importing, exporting, and deleting templates end-to-end against Supabase (ensure selections appear in preview)
-- 🧩 Confirm JSON imports reconnect to existing experiences/education/skills for real accounts; capture any unmatched warnings for follow-up
+**New UI Features in `CVTemplatesList`:**
+1. **Edit Template (✏️ icon)** - Click to edit template selections inline
+2. **Preview CV (👁️ icon)** - See formatted CV preview with download option
+3. **Download PDF (📄 icon)** - Instant PDF download for the template
+4. **Export JSON (⬇️ icon)** - Export template configuration as JSON
+5. **Import JSON (⬆️ icon)** - Update template from JSON file
+6. **Delete (🗑️ icon)** - Remove template with confirmation
+
+**Bolt.New Validation Required:**
+- 🔁 **Test Edit Flow**: Click Edit button → modify selections → save → verify changes persist
+- 🔁 **Test PDF Preview**: Click Preview → verify all selected items appear → download from preview
+- 🔁 **Test PDF Download**: Click Download PDF → verify file downloads with correct content
+- 🔁 Validate creating, importing, exporting, and deleting templates end-to-end against Supabase
+- 🧩 Confirm JSON imports reconnect to existing experiences/education/skills for real accounts
 - 👥 Test template flows across multiple users in Bolt to verify templates remain scoped to each Supabase user ID
 - 📄 Export a template JSON in Bolt and re-import it to guarantee parity with live Supabase data
+- 🎨 Verify PDF preview UI displays correctly with all sections
+- 📥 Test edit mode cancellation (Back to List button)
 
 #### Phase 5: Data Layer Migration (Portfolio Management) ⏳ PENDING
 - Mirror the Supabase + React Query patterns from Phases 4–4.5 for portfolio projects, blog posts, and settings

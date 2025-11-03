@@ -1,25 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useCreateCvTemplate,
+  useUpdateCvTemplate,
   useCvEducation,
   useCvExperiences,
   useCvSkills,
 } from "@/hooks/cv";
+import { CvTemplate } from "@/types/cv";
 import { toast } from "sonner";
 
 interface CVTemplateFormProps {
+  template?: CvTemplate;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
-export default function CVTemplateForm({ onSuccess, onCancel }: CVTemplateFormProps) {
+export default function CVTemplateForm({ template, onSuccess, onCancel }: CVTemplateFormProps) {
   const createTemplate = useCreateCvTemplate();
+  const updateTemplate = useUpdateCvTemplate();
   const experiencesQuery = useCvExperiences();
   const educationQuery = useCvEducation();
   const skillsQuery = useCvSkills();
+
+  const isEditMode = !!template;
 
   const [formData, setFormData] = useState({
     name: "",
@@ -30,6 +36,26 @@ export default function CVTemplateForm({ onSuccess, onCancel }: CVTemplateFormPr
     selectedEducationIds: [] as string[],
     selectedSkillIds: [] as string[],
   });
+
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        name: template.name,
+        description: template.description || "",
+        includeProfile: template.includeProfile,
+        includeLanguages: template.includeLanguages,
+        selectedExperienceIds: Array.isArray(template.selectedExperienceIds)
+          ? template.selectedExperienceIds
+          : [],
+        selectedEducationIds: Array.isArray(template.selectedEducationIds)
+          ? template.selectedEducationIds
+          : [],
+        selectedSkillIds: Array.isArray(template.selectedSkillIds)
+          ? template.selectedSkillIds
+          : [],
+      });
+    }
+  }, [template]);
 
   const isLoadingOptions =
     experiencesQuery.isLoading ||
@@ -45,30 +71,48 @@ export default function CVTemplateForm({ onSuccess, onCancel }: CVTemplateFormPr
     }
 
     try {
-      await createTemplate.mutateAsync({
-        name: formData.name.trim(),
-        description: formData.description.trim() || null,
-        includeProfile: formData.includeProfile,
-        includeLanguages: formData.includeLanguages,
-        selectedExperienceIds: formData.selectedExperienceIds,
-        selectedEducationIds: formData.selectedEducationIds,
-        selectedSkillIds: formData.selectedSkillIds,
-      });
+      if (isEditMode && template) {
+        await updateTemplate.mutateAsync({
+          id: template.id,
+          input: {
+            name: formData.name.trim(),
+            description: formData.description.trim() || null,
+            includeProfile: formData.includeProfile,
+            includeLanguages: formData.includeLanguages,
+            selectedExperienceIds: formData.selectedExperienceIds,
+            selectedEducationIds: formData.selectedEducationIds,
+            selectedSkillIds: formData.selectedSkillIds,
+          },
+        });
+        toast.success("Template updated successfully");
+      } else {
+        await createTemplate.mutateAsync({
+          name: formData.name.trim(),
+          description: formData.description.trim() || null,
+          includeProfile: formData.includeProfile,
+          includeLanguages: formData.includeLanguages,
+          selectedExperienceIds: formData.selectedExperienceIds,
+          selectedEducationIds: formData.selectedEducationIds,
+          selectedSkillIds: formData.selectedSkillIds,
+        });
+        toast.success("Template created successfully");
+      }
 
-      toast.success("Template created successfully");
-      setFormData({
-        name: "",
-        description: "",
-        includeProfile: true,
-        includeLanguages: true,
-        selectedExperienceIds: [],
-        selectedEducationIds: [],
-        selectedSkillIds: [],
-      });
+      if (!isEditMode) {
+        setFormData({
+          name: "",
+          description: "",
+          includeProfile: true,
+          includeLanguages: true,
+          selectedExperienceIds: [],
+          selectedEducationIds: [],
+          selectedSkillIds: [],
+        });
+      }
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to create template");
+      toast.error(isEditMode ? "Failed to update template" : "Failed to create template");
     }
   };
 
@@ -83,6 +127,8 @@ export default function CVTemplateForm({ onSuccess, onCancel }: CVTemplateFormPr
       return { ...prev, [key]: Array.from(current) };
     });
   };
+
+  const isPending = isEditMode ? updateTemplate.isPending : createTemplate.isPending;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -299,12 +345,12 @@ export default function CVTemplateForm({ onSuccess, onCancel }: CVTemplateFormPr
 
       <div className="flex justify-end gap-2">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={createTemplate.isPending}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={createTemplate.isPending}>
-          {createTemplate.isPending ? "Creating..." : "Create Template"}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Template" : "Create Template")}
         </Button>
       </div>
     </form>

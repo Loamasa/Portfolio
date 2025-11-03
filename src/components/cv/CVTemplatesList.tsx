@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Download, Trash2, Upload } from "lucide-react";
+import { Download, Trash2, Upload, Edit, FileText, Eye } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCvTemplates,
@@ -23,6 +23,8 @@ import {
   CvSkill,
   CvTemplate,
 } from "@/types/cv";
+import { generateCVPDF } from "@/lib/pdfGenerator";
+import CVTemplateForm from "./CVTemplateForm";
 
 interface CVTemplatesListProps {
   profile: CvProfile | null;
@@ -41,6 +43,8 @@ export default function CVTemplatesList({
   const deleteTemplate = useDeleteCvTemplate();
   const updateTemplate = useUpdateCvTemplate();
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [editingTemplate, setEditingTemplate] = useState<CvTemplate | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<CvTemplate | null>(null);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete template "${name}"? This cannot be undone.`)) {
@@ -176,6 +180,181 @@ export default function CVTemplatesList({
     }
   };
 
+  const getTemplateData = (template: CvTemplate) => {
+    const selectedExperienceIds = Array.isArray(template.selectedExperienceIds)
+      ? template.selectedExperienceIds
+      : [];
+    const selectedEducationIds = Array.isArray(template.selectedEducationIds)
+      ? template.selectedEducationIds
+      : [];
+    const selectedSkillIds = Array.isArray(template.selectedSkillIds)
+      ? template.selectedSkillIds
+      : [];
+
+    const filteredExperiences = experiences.filter((exp) =>
+      selectedExperienceIds.includes(exp.id)
+    );
+
+    const filteredEducation = education.filter((edu) =>
+      selectedEducationIds.includes(edu.id)
+    );
+
+    return {
+      profile: template.includeProfile ? profile : null,
+      experiences: filteredExperiences.map((exp) => ({
+        ...exp,
+        isCurrent: exp.isCurrent ? 1 : 0,
+        roleCategories: exp.roleCategories
+          ? exp.roleCategories.map((cat) => ({
+              name: cat.category,
+              items: cat.items,
+            }))
+          : null,
+      })),
+      education: filteredEducation.map((edu) => ({
+        ...edu,
+        isOngoing: edu.isOngoing ? 1 : 0,
+        educationSections: edu.educationSections
+          ? edu.educationSections.map((sec) => ({
+              name: sec.title,
+              items: sec.items,
+            }))
+          : null,
+      })),
+      skills: skills.filter((skill) => selectedSkillIds.includes(skill.id)),
+    };
+  };
+
+  const handleDownloadPDF = async (template: CvTemplate) => {
+    try {
+      const cvData = getTemplateData(template);
+      const fileName = `${template.name.replace(/\s+/g, "-").toLowerCase()}-${
+        new Date().toISOString().split("T")[0]
+      }.pdf`;
+      await generateCVPDF(cvData, fileName);
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
+  const handlePreviewPDF = (template: CvTemplate) => {
+    setPreviewTemplate(template);
+  };
+
+  if (editingTemplate) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Edit Template: {editingTemplate.name}</h3>
+          <Button variant="outline" onClick={() => setEditingTemplate(null)}>
+            Back to List
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <CVTemplateForm
+              template={editingTemplate}
+              onSuccess={() => {
+                setEditingTemplate(null);
+                toast.success("Template updated successfully");
+              }}
+              onCancel={() => setEditingTemplate(null)}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (previewTemplate) {
+    const cvData = getTemplateData(previewTemplate);
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Preview: {previewTemplate.name}</h3>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => handleDownloadPDF(previewTemplate)}>
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </Button>
+            <Button variant="outline" onClick={() => setPreviewTemplate(null)}>
+              Back to List
+            </Button>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="prose max-w-none bg-white border rounded p-6">
+              {cvData.profile && (
+                <div className="mb-6">
+                  <h1 className="text-2xl font-bold">{cvData.profile.fullName}</h1>
+                  {cvData.profile.title && (
+                    <p className="text-lg text-slate-600">{cvData.profile.title}</p>
+                  )}
+                  <div className="text-sm text-slate-600 mt-2 space-y-1">
+                    {cvData.profile.email && <p>Email: {cvData.profile.email}</p>}
+                    {cvData.profile.phone && <p>Phone: {cvData.profile.phone}</p>}
+                    {cvData.profile.location && <p>Location: {cvData.profile.location}</p>}
+                  </div>
+                  {cvData.profile.profileSummary && (
+                    <p className="mt-4 text-sm">{cvData.profile.profileSummary}</p>
+                  )}
+                </div>
+              )}
+
+              {cvData.experiences.length > 0 && (
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 border-b pb-2">Experience</h2>
+                  {cvData.experiences.map((exp) => (
+                    <div key={exp.id} className="mb-4">
+                      <h3 className="font-semibold">{exp.jobTitle}</h3>
+                      <p className="text-sm text-slate-600">
+                        {exp.company} • {exp.startDate} - {exp.endDate || "Present"}
+                      </p>
+                      {exp.overview && <p className="text-sm mt-2">{exp.overview}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {cvData.education.length > 0 && (
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 border-b pb-2">Education</h2>
+                  {cvData.education.map((edu) => (
+                    <div key={edu.id} className="mb-4">
+                      <h3 className="font-semibold">{edu.school}</h3>
+                      <p className="text-sm text-slate-600">
+                        {edu.degree} {edu.field && `in ${edu.field}`} • {edu.startDate} - {edu.endDate || "Present"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {cvData.skills.length > 0 && (
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 border-b pb-2">Skills</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {cvData.skills.map((skill) => (
+                      <span
+                        key={skill.id}
+                        className="px-3 py-1 bg-slate-100 text-sm rounded"
+                      >
+                        {skill.skillName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -218,6 +397,30 @@ export default function CVTemplatesList({
                 )}
               </div>
               <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setEditingTemplate(template)}
+                  title="Edit template"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handlePreviewPDF(template)}
+                  title="Preview CV"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleDownloadPDF(template)}
+                  title="Download PDF"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
